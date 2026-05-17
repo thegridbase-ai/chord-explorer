@@ -244,3 +244,5 @@ MIT License - feel free to use and modify.
 - [ ] More chord types (sus2, sus4, add9, etc.)
 - [ ] Metronome integration
 - [ ] Save/load progressions
+
+<!-- post-migration auto-deploy check: 2026-05-17T11:52:08Z -->

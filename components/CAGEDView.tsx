@@ -171,7 +171,7 @@ const FullFretboardView: React.FC<{
             }}
           />
           <div
-            className="absolute bottom-1 text-[10px] text-bone/20 font-mono transform -translate-x-1/2"
+            className="absolute bottom-1 text-[10px] text-bone/60 font-mono transform -translate-x-1/2"
             style={{ left: `${((fret - 0.5) / maxFret) * 100}%` }}
           >
             {fret}

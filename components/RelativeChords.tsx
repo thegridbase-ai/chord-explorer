@@ -240,7 +240,7 @@ const ChordCard: React.FC<ChordCardProps> = ({ chord, isSelected, isInProgressio
                     <div className="flex items-center gap-2">
                         <p className="text-sm text-bone/30 font-mono">{romanNumeral}</p>
                         {matchingKeysCount !== undefined && matchingKeysCount > 0 && (
-                            <p className="text-[10px] text-bone/20 font-mono">
+                            <p className="text-[10px] text-bone/60 font-mono">
                                 {matchingKeysCount} key{matchingKeysCount > 1 ? 's' : ''}
                             </p>
                         )}

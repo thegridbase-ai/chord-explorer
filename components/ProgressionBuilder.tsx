@@ -82,6 +82,7 @@ const ProgressionBuilder: React.FC<ProgressionBuilderProps> = ({ progression, on
               whileTap={{ scale: 0.9 }}
               onClick={isPlaying ? handleStop : handlePlay}
               disabled={isDisabled && !isPlaying}
+              aria-label={isPlaying ? "Stop progression" : "Play progression"}
               className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-colors ${
                 isPlaying
                   ? 'bg-crimson hover:bg-hellfire animate-pulse text-bone shadow-[0_0_20px_rgba(220,20,60,0.5)]'
@@ -96,6 +97,7 @@ const ProgressionBuilder: React.FC<ProgressionBuilderProps> = ({ progression, on
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.9 }}
               onClick={onClear}
+              aria-label="Clear progression"
               className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-bone/5 text-bone/40 flex items-center justify-center hover:bg-crimson/10 hover:text-crimson transition-colors"
             >
               <Trash2 className="w-4 h-4" />
@@ -115,6 +117,7 @@ const ProgressionBuilder: React.FC<ProgressionBuilderProps> = ({ progression, on
             max="240"
             value={bpm}
             onChange={(e) => setBpm(Number(e.target.value))}
+            aria-label="Tempo in BPM"
             className="flex-1"
           />
           <span className="text-[10px] font-mono text-bone/30">240</span>

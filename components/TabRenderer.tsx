@@ -566,7 +566,7 @@ const MeasureBlock: React.FC<{
     <div className="relative flex-1 min-w-0">
       {/* Measure number */}
       <div
-        className="absolute text-bone/20 font-mono select-none"
+        className="absolute text-bone/60 font-mono select-none"
         style={{ top: '-16px', left: '2px', fontSize: '9px', lineHeight: '1' }}
       >
         {measure.measureNumber}

@@ -131,7 +131,7 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
         {/* Fret Markers */}
         <div className="absolute -bottom-4 md:-bottom-5 left-0 right-0 flex justify-around">
             {[...Array(FRET_COUNT)].map((_, i) => (
-                 <div key={i} className="w-full text-center text-[10px] md:text-xs text-bone/20 font-mono">
+                 <div key={i} className="w-full text-center text-[10px] md:text-xs text-bone/60 font-mono">
                     {FRET_MARKERS.includes(i + 1) ? (i + 1) : ''}
                 </div>
             ))}

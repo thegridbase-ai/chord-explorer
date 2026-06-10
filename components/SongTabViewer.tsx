@@ -155,7 +155,7 @@ const SongTabViewer: React.FC<SongTabViewerProps> = ({ onClose }) => {
 
               {/* Tracks */}
               <div className="space-y-2 mb-8">
-                <h4 className="text-xs font-mono text-bone/30 uppercase tracking-wider mb-3">Select a track to view tab</h4>
+                <h4 className="text-xs font-mono text-bone/60 uppercase tracking-wider mb-3">Select a track to view tab</h4>
                 {selectedSong.tracks
                   .filter(t => t.difficulty !== undefined)
                   .sort((a, b) => (b.views || 0) - (a.views || 0))
@@ -189,7 +189,7 @@ const SongTabViewer: React.FC<SongTabViewerProps> = ({ onClose }) => {
                             ))}
                           </div>
                         )}
-                        <span className="text-bone/20 text-xs font-mono w-16 text-right">
+                        <span className="text-bone/60 text-xs font-mono w-16 text-right">
                           {track.views ? `${(track.views / 1000).toFixed(0)}k` : ''}
                         </span>
                         <Music className="w-3.5 h-3.5 text-bone/10 group-hover:text-crimson/40 transition-colors" />
@@ -225,7 +225,7 @@ const SongTabViewer: React.FC<SongTabViewerProps> = ({ onClose }) => {
                   value={query}
                   onChange={(e) => handleSearch(e.target.value)}
                   placeholder="Search songs or artists..."
-                  className="w-full pl-10 pr-4 py-3 bg-bg-abyss/50 border border-crimson/15 rounded-lg text-bone font-mono text-sm placeholder:text-bone/20 focus:outline-none focus:border-crimson/40 focus:shadow-[0_0_15px_rgba(220,20,60,0.1)] transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-bg-abyss/50 border border-crimson/15 rounded-lg text-bone font-mono text-sm placeholder:text-bone/60 focus:outline-none focus:border-crimson/40 focus:shadow-[0_0_15px_rgba(220,20,60,0.1)] transition-all"
                 />
                 {loading && (
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-crimson animate-spin" />
@@ -259,12 +259,12 @@ const SongTabViewer: React.FC<SongTabViewerProps> = ({ onClose }) => {
                   ))}
                 </div>
               ) : query && !loading ? (
-                <div className="flex flex-col items-center justify-center py-16 text-bone/20">
+                <div className="flex flex-col items-center justify-center py-16 text-bone/60">
                   <Search className="w-8 h-8 mb-3" />
                   <p className="text-sm font-mono">No songs found</p>
                 </div>
               ) : !query ? (
-                <div className="flex flex-col items-center justify-center py-16 text-bone/20">
+                <div className="flex flex-col items-center justify-center py-16 text-bone/60">
                   <Music className="w-8 h-8 mb-3" />
                   <p className="text-sm font-mono">Search for a song to view its tab</p>
                 </div>

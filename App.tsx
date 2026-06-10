@@ -123,9 +123,9 @@ const App: React.FC = () => {
           <Skull className="w-5 h-5 text-crimson" />
         </div>
         <div>
-          <h4 className="text-sm font-semibold text-crimson mb-1 font-metal">Theory Note</h4>
+          <h4 className="text-sm font-semibold text-hellfire mb-1 font-metal">Theory Note</h4>
           <p className="text-sm text-bone/70 leading-relaxed">
-            <span className="font-mono text-crimson">{chord.root}{CHORD_TYPES[chord.type].symbol}</span> ({roman}) consists of the notes: <span className="font-mono text-ember">{notes}</span>.
+            <span className="font-mono text-hellfire">{chord.root}{CHORD_TYPES[chord.type].symbol}</span> ({roman}) consists of the notes: <span className="font-mono text-ember">{notes}</span>.
             It serves as the '{roman}' chord in its relative major key.
             This chord has a {chord.type === 'minor' ? 'dark, melancholic' : 'powerful, commanding'} quality.
           </p>
@@ -260,6 +260,7 @@ const App: React.FC = () => {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={handlePlayChord}
+                aria-label="Play chord"
                 className="w-12 h-12 rounded-full bg-crimson/15 text-crimson border border-crimson/30 flex items-center justify-center hover:bg-crimson/25 transition-colors flame-glow"
               >
                 <Volume2 className="w-5 h-5" />

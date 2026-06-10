@@ -130,7 +130,7 @@ const Piano: React.FC<PianoProps> = ({ notes, scaleNotes }) => {
               ) : hasScaleRing ? (
                 renderScaleRing(key.note as Note, false)
               ) : null}
-              <span className="absolute bottom-1 md:bottom-2 text-[10px] md:text-xs text-bg-abyss/30 font-mono font-bold pointer-events-none">{key.note === 'C' ? `${key.note}${key.octave}` : key.note}</span>
+              <span className="absolute bottom-1 md:bottom-2 text-[10px] md:text-xs text-bg-abyss/70 font-mono font-bold pointer-events-none">{key.note === 'C' ? `${key.note}${key.octave}` : key.note}</span>
             </div>
           );
         })}

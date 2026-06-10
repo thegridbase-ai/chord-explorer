@@ -74,7 +74,7 @@ const ChordSelector: React.FC<ChordSelectorProps> = ({ selectedRoot, selectedTyp
                   key={type}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => onTypeChange(type)}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-md text-center text-xs transition-colors duration-200 border font-mono
+                  className={`flex-shrink-0 px-3 py-2.5 md:py-1.5 min-w-[2.75rem] md:min-w-0 rounded-md text-center text-xs transition-colors duration-200 border font-mono
                     ${isSelected
                       ? 'bg-crimson/20 border-crimson text-crimson shadow-[0_0_8px_rgba(220,20,60,0.3)]'
                       : 'bg-bone/5 border-bone/10 text-bone/60 hover:bg-bone/10 hover:text-bone'

@@ -30,7 +30,7 @@ const ScaleSelector: React.FC<ScaleSelectorProps> = ({
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={onToggle}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all border ${
+        className={`flex items-center gap-2 px-3 py-2.5 md:py-1.5 rounded-md text-xs font-mono font-medium transition-all border ${
           active
             ? 'bg-amber-500/15 border-amber-500/40 text-amber-400 shadow-[0_0_10px_rgba(218,165,32,0.15)]'
             : 'bg-bone/5 border-bone/10 text-bone/40 hover:text-bone/60 hover:border-bone/20'

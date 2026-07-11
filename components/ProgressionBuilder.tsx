@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Square, Trash2, Plus, X, ChevronRight, Flame } from 'lucide-react';
+import { Play, Square, Trash2, Plus, X, ChevronRight, Flame, Download } from 'lucide-react';
 import { ProgressionChord, CHORD_TYPES } from '../constants/musicData';
 import MiniFretboard from './MiniFretboard';
 import { getAllChordVoicings, getChordVoicing } from '../lib/musicTheory';
+import { progressionToMidi } from '../lib/midi';
 import { playProgression, stopPlayback, ensureAudioContext } from '../lib/audioEngine';
 import { loadStoredBpm, saveStoredBpm } from '../lib/storage';
 
@@ -41,6 +42,21 @@ const ProgressionBuilder: React.FC<ProgressionBuilderProps> = ({ progression, on
       stopPlayback();
     };
   }, []);
+
+  const handleExportMidi = useCallback(() => {
+    if (progression.length === 0) return;
+
+    const bytes = progressionToMidi(progression, bpm);
+    const blob = new Blob([bytes], { type: 'audio/midi' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `progression-${bpm}bpm.mid`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  }, [progression, bpm]);
 
   const isDisabled = progression.length === 0;
 
@@ -106,6 +122,21 @@ const ProgressionBuilder: React.FC<ProgressionBuilderProps> = ({ progression, on
               className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-bone/5 text-bone/40 flex items-center justify-center hover:bg-crimson/10 hover:text-crimson transition-colors"
             >
               <Trash2 className="w-4 h-4" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={handleExportMidi}
+              disabled={isDisabled}
+              aria-label="Export MIDI"
+              title="Export MIDI"
+              className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-colors ${
+                isDisabled
+                  ? 'bg-bone/5 text-bone/20 cursor-not-allowed opacity-50'
+                  : 'bg-bone/5 text-bone/40 hover:bg-crimson/10 hover:text-crimson'
+              }`}
+            >
+              <Download className="w-4 h-4" />
             </motion.button>
           </div>
           <div className="text-right hidden sm:block">

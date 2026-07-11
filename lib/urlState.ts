@@ -6,9 +6,10 @@ export interface UrlState {
   type?: ChordType;
   voicing?: number;
   scale?: ScaleType;
+  inv?: number;
 }
 
-// Parses ?root=C&type=m7&voicing=1&scale=dorian. Invalid values are ignored.
+// Parses ?root=C&type=m7&voicing=1&scale=dorian&inv=1. Invalid values are ignored.
 export const readStateFromUrl = (): UrlState => {
   if (typeof window === 'undefined') return {};
   const params = new URLSearchParams(window.location.search);
@@ -34,6 +35,11 @@ export const readStateFromUrl = (): UrlState => {
     state.scale = scale as ScaleType;
   }
 
+  const inv = params.get('inv');
+  if (inv !== null && /^[0-3]$/.test(inv)) {
+    state.inv = Number(inv);
+  }
+
   return state;
 };
 
@@ -43,6 +49,7 @@ export const writeStateToUrl = (
   voicing: number,
   scaleActive: boolean,
   scale: ScaleType,
+  inversion: number = 0,
 ): void => {
   if (typeof window === 'undefined') return;
   const params = new URLSearchParams();
@@ -50,5 +57,6 @@ export const writeStateToUrl = (
   params.set('type', type);
   params.set('voicing', String(voicing));
   if (scaleActive) params.set('scale', scale);
+  if (inversion > 0) params.set('inv', String(inversion));
   window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
 };

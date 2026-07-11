@@ -12,13 +12,15 @@ import CAGEDView from './components/CAGEDView';
 import EmberParticles from './components/EmberParticles';
 import ScaleSelector from './components/ScaleSelector';
 import SongTabViewer from './components/SongTabViewer';
-import { getChordNotes, getAllChordVoicings, getRelativeChords, getRomanNumeral, displayNote } from './lib/musicTheory';
+import { getChordNotes, getAllChordVoicings, getRelativeChords, getRomanNumeral, displayNote, invertChordNotes, chordDisplayName } from './lib/musicTheory';
 import { readStateFromUrl, writeStateToUrl } from './lib/urlState';
 import { loadStoredProgression, saveStoredProgression } from './lib/storage';
 import { getScaleNotes } from './lib/scaleTheory';
-import { NOTES, CHORD_TYPES, ChordType, Note, Chord as AppChord, ProgressionChord } from './constants/musicData';
+import { ChordType, Note, Chord as AppChord, ProgressionChord } from './constants/musicData';
 import { ScaleType, CHORD_TO_SCALE } from './constants/scaleData';
-import { playVoicing, ensureAudioContext } from './lib/audioEngine';
+import { playVoicing, playChord, ensureAudioContext } from './lib/audioEngine';
+
+const INVERSION_LABELS = ['Root', '1st', '2nd', '3rd'];
 
 const App: React.FC = () => {
   const [initialUrlState] = useState(readStateFromUrl);
@@ -34,6 +36,7 @@ const App: React.FC = () => {
   const [scaleActive, setScaleActive] = useState(initialUrlState.scale !== undefined);
   const [scaleType, setScaleType] = useState<ScaleType>(initialUrlState.scale ?? 'pentatonic_minor');
   const [activeExtensions, setActiveExtensions] = useState<string[]>([]);
+  const [inversion, setInversion] = useState(initialUrlState.inv ?? 0);
 
   const selectedChord = useMemo(() => ({ root: rootNote, type: chordType }), [rootNote, chordType]);
   const chordNotes = useMemo(() => getChordNotes(rootNote, chordType), [rootNote, chordType]);
@@ -49,10 +52,17 @@ const App: React.FC = () => {
   const currentVoicingIndex = selectedVoicingIndex >= allVoicings.length ? 0 : selectedVoicingIndex;
   const currentVoicing = allVoicings[currentVoicingIndex];
 
+  // 0..(chordTones - 1); anything else falls back to root position
+  const currentInversion = inversion > 0 && inversion < chordNotes.length ? inversion : 0;
+  const invertedNotes = useMemo(
+    () => invertChordNotes(rootNote, chordType, currentInversion),
+    [rootNote, chordType, currentInversion]
+  );
+
   // Keep sharable state in the URL query string
   useEffect(() => {
-    writeStateToUrl(rootNote, chordType, currentVoicingIndex, scaleActive, scaleType);
-  }, [rootNote, chordType, currentVoicingIndex, scaleActive, scaleType]);
+    writeStateToUrl(rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion);
+  }, [rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion]);
 
   // Persist the progression across sessions
   useEffect(() => {
@@ -94,6 +104,7 @@ const App: React.FC = () => {
       : -1;
     setChordType(newType);
     setSelectedVoicingIndex(matchingIndex >= 0 ? matchingIndex : 0);
+    setInversion(0);
     // Auto-suggest scale when chord type changes
     const suggested = CHORD_TO_SCALE[newType];
     if (suggested) setScaleType(suggested);
@@ -110,16 +121,23 @@ const App: React.FC = () => {
     setRootNote(root);
     setChordType(type);
     setSelectedVoicingIndex(0);
+    setInversion(0);
   }
 
   const handleCircleKeySelect = (key: Note, isMinor: boolean) => {
     setRootNote(key);
     setChordType(isMinor ? 'minor' : 'Major');
+    setInversion(0);
   }
 
   const handlePlayChord = async () => {
     await ensureAudioContext();
-    playVoicing(displayVoicing, 'guitar');
+    if (currentInversion > 0 && !hoveredChord) {
+      // Play the inverted note stack on the piano synth
+      playChord(invertedNotes.map(n => `${n.note}${n.octave}`), 'piano');
+    } else {
+      playVoicing(displayVoicing, 'guitar');
+    }
   };
 
   const TheoryNote: React.FC<{ chord: AppChord }> = ({ chord }) => {
@@ -138,7 +156,7 @@ const App: React.FC = () => {
         <div>
           <h4 className="text-sm font-semibold text-hellfire mb-1 font-metal">Theory Note</h4>
           <p className="text-sm text-bone/70 leading-relaxed">
-            <span className="font-mono text-hellfire">{displayNote(chord.root, chord.root, chord.type)}{CHORD_TYPES[chord.type].symbol}</span> ({roman}) consists of the notes: <span className="font-mono text-ember">{notes}</span>.
+            <span className="font-mono text-hellfire">{chordDisplayName(chord.root, chord.type, currentInversion, chord.root, chord.type)}</span> ({roman}) consists of the notes: <span className="font-mono text-ember">{notes}</span>.
             It serves as the '{roman}' chord in its relative major key.
             This chord has a {chord.type === 'minor' ? 'dark, melancholic' : 'powerful, commanding'} quality.
           </p>
@@ -224,7 +242,7 @@ const App: React.FC = () => {
           <ChordSelector
             selectedRoot={rootNote}
             selectedType={chordType}
-            onRootChange={(root) => { setRootNote(root); setSelectedVoicingIndex(0); }}
+            onRootChange={(root) => { setRootNote(root); setSelectedVoicingIndex(0); setInversion(0); }}
             onTypeChange={handleChordTypeChange}
           />
         </aside>
@@ -234,7 +252,7 @@ const App: React.FC = () => {
           <ChordSelector
             selectedRoot={rootNote}
             selectedType={chordType}
-            onRootChange={(root) => { setRootNote(root); setSelectedVoicingIndex(0); }}
+            onRootChange={(root) => { setRootNote(root); setSelectedVoicingIndex(0); setInversion(0); }}
             onTypeChange={handleChordTypeChange}
             compact
           />
@@ -244,7 +262,7 @@ const App: React.FC = () => {
           <div className="w-full max-w-5xl mx-auto">
             {/* Chord Title */}
             <motion.div
-              key={`${rootNote}-${chordType}`}
+              key={`${rootNote}-${chordType}-${currentInversion}`}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ type: 'spring', stiffness: 200, damping: 20 }}
@@ -252,7 +270,7 @@ const App: React.FC = () => {
             >
               <div>
                 <h2 className="text-3xl md:text-5xl font-gothic font-bold text-bone tracking-wider flex items-center gap-3">
-                  <span className="text-crimson glow-text-crimson">{displayNote(rootNote, rootNote, chordType)}{CHORD_TYPES[chordType].symbol}</span>
+                  <span className="text-crimson glow-text-crimson">{chordDisplayName(rootNote, chordType, currentInversion, rootNote, chordType)}</span>
                   <span className="text-lg md:text-xl font-normal text-bone/40 font-mono">
                     ({displayNote(rootNote, rootNote, chordType)} {chordType})
                   </span>
@@ -293,7 +311,7 @@ const App: React.FC = () => {
                 <Flame className="w-3 h-3 text-ember" />
                 Piano View
               </h3>
-              <Piano notes={chordNotes} scaleNotes={scaleNotes} keyRoot={rootNote} keyType={chordType} />
+              <Piano notes={invertedNotes} scaleNotes={scaleNotes} keyRoot={rootNote} keyType={chordType} />
             </motion.div>
 
             {/* Voicing Selector */}
@@ -340,6 +358,46 @@ const App: React.FC = () => {
               </div>
             </motion.div>
 
+            {/* Inversion Selector */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+              className="mb-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-semibold text-bone/40 uppercase tracking-[0.2em] font-metal flex items-center gap-2">
+                  <Flame className="w-3 h-3 text-ember" />
+                  Inversion
+                </h3>
+                <span className="text-xs text-bone/30 font-mono">
+                  {chordNotes.length} position{chordNotes.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className={`flex gap-2 overflow-x-auto pb-2 transition-opacity ${hoveredChord ? 'opacity-40' : ''}`}>
+                {chordNotes.map((tone, index) => {
+                  const bass = displayNote(tone.note, rootNote, chordType);
+                  return (
+                    <motion.button
+                      key={index}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => setInversion(index)}
+                      disabled={!!hoveredChord}
+                      className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all border font-mono text-left ${
+                        currentInversion === index
+                          ? 'bg-crimson/20 border-crimson text-crimson shadow-[0_0_10px_rgba(220,20,60,0.3)]'
+                          : 'bg-bone/5 border-bone/10 text-bone/60 hover:bg-bone/10 hover:text-bone'
+                      } ${hoveredChord ? 'cursor-not-allowed' : ''}`}
+                    >
+                      <span className="block">{INVERSION_LABELS[index]}</span>
+                      <span className="block text-[10px] opacity-70">{bass} in bass</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+
             {/* Scale Selector */}
             <ScaleSelector
               active={scaleActive}
@@ -357,6 +415,9 @@ const App: React.FC = () => {
               transition={{ delay: 0.2 }}
             >
               <Fretboard voicing={displayVoicing} chordNotes={chordNotes} scaleNotes={scaleNotes} isPreview={hoveredChord !== null} />
+              {currentInversion > 0 && (
+                <p className="mt-2 text-xs text-bone/30 font-mono italic">Guitar voicings shown in root position</p>
+              )}
             </motion.div>
 
             {/* Theory Note */}

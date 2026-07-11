@@ -146,6 +146,8 @@ export const CHORD_TO_SCALE: Record<string, ScaleType> = {
   'm7': 'pentatonic_minor',
   'Major': 'pentatonic_major',
   'maj7': 'pentatonic_major',
+  'sus2': 'major',
+  'sus4': 'mixolydian',
   '7': 'mixolydian',
   'dim': 'locrian',
   'dim7': 'diminished',

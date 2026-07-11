@@ -2,7 +2,7 @@
 export const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 export type Note = typeof NOTES[number];
 
-export const CHORD_TYPE_IDS = ['Major', 'minor', 'dim', 'aug', '7', 'm7', 'maj7', 'dim7'] as const;
+export const CHORD_TYPE_IDS = ['Major', 'minor', 'sus2', 'sus4', 'dim', 'aug', '7', 'm7', 'maj7', 'dim7'] as const;
 export type ChordType = typeof CHORD_TYPE_IDS[number];
 
 export type ChordFormula = {
@@ -14,6 +14,8 @@ export type ChordFormula = {
 export const CHORD_TYPES: Record<ChordType, ChordFormula> = {
   'Major': { name: 'Major', symbol: '', intervals: [0, 4, 7] },
   'minor': { name: 'minor', symbol: 'm', intervals: [0, 3, 7] },
+  'sus2': { name: 'suspended 2nd', symbol: 'sus2', intervals: [0, 2, 7] },
+  'sus4': { name: 'suspended 4th', symbol: 'sus4', intervals: [0, 5, 7] },
   'dim': { name: 'diminished', symbol: 'dim', intervals: [0, 3, 6] },
   'aug': { name: 'augmented', symbol: 'aug', intervals: [0, 4, 8] },
   '7': { name: 'Dominant 7th', symbol: '7', intervals: [0, 4, 7, 10] },
@@ -31,7 +33,7 @@ export interface ProgressionChord extends Chord {
   voicingIndex: number;
 }
 
-export type Interval = 'Root' | 'Minor 3rd' | 'Major 3rd' | 'Perfect 5th' | 'Diminished 5th' | 'Augmented 5th' | 'Minor 7th' | 'Major 7th';
+export type Interval = 'Root' | 'Major 2nd' | 'Minor 3rd' | 'Major 3rd' | 'Perfect 4th' | 'Perfect 5th' | 'Diminished 5th' | 'Augmented 5th' | 'Minor 7th' | 'Major 7th';
 
 export interface NoteWithInterval {
   note: Note;
@@ -197,7 +199,7 @@ export const GUITAR_VOICINGS: Record<string, VoicingDefinition[]> = {
   ],
   'B_dim': [
     { name: 'Open', frets: [-1, 3, 4, 3, 2, -1], startFret: 0 },
-    { name: 'Barre 7th', frets: [7, 6, 7, -1, 9, -1], startFret: 6 },
+    { name: 'Barre 7th', frets: [-1, -1, 7, 9, 8, 7], startFret: 7 },
   ],
   'F#_minor': [
     { name: 'Barre 2nd', frets: [2, 2, 2, 4, 4, 2], startFret: 2 },
@@ -245,7 +247,7 @@ export const GUITAR_VOICINGS: Record<string, VoicingDefinition[]> = {
     { name: 'Barre 12th', frets: [12, 12, 13, 13, 14, 12], startFret: 12 },
   ],
   'F_maj7': [
-    { name: 'Open', frets: [0, 1, 2, 2, -1, -1], startFret: 0 },
+    { name: 'Open', frets: [0, 1, 2, 3, -1, -1], startFret: 0 },
     { name: 'Barre 1st', frets: [1, 1, 2, 2, 3, 1], startFret: 1 },
     { name: 'Barre 8th', frets: [8, 10, 9, 10, 8, -1], startFret: 8 },
   ],
@@ -269,11 +271,11 @@ export const GUITAR_VOICINGS: Record<string, VoicingDefinition[]> = {
   ],
   'A#_maj7': [
     { name: 'Barre 1st', frets: [1, 3, 2, 3, 1, -1], startFret: 1 },
-    { name: 'Barre 6th', frets: [6, 5, 7, 7, 8, 6], startFret: 5 },
+    { name: 'Barre 6th', frets: [6, 6, 7, 7, 8, 6], startFret: 6 },
   ],
   'B_maj7': [
     { name: 'Barre 2nd', frets: [2, 4, 3, 4, 2, -1], startFret: 2 },
-    { name: 'Barre 7th', frets: [7, 6, 8, 8, 9, 7], startFret: 6 },
+    { name: 'Barre 7th', frets: [7, 7, 8, 8, 9, 7], startFret: 7 },
   ],
 
   // Minor 7th (m7) voicings
@@ -339,7 +341,7 @@ export const GUITAR_VOICINGS: Record<string, VoicingDefinition[]> = {
     { name: 'Barre 9th', frets: [9, 8, 9, 11, -1, -1], startFret: 8 },
   ],
   'D_dim': [
-    { name: 'Open', frets: [1, 0, 1, 0, -1, -1], startFret: 0 },
+    { name: 'Open', frets: [1, 3, 1, 0, -1, -1], startFret: 0 },
     { name: 'Barre 5th', frets: [-1, 6, 7, 6, 5, -1], startFret: 5 },
     { name: 'Barre 10th', frets: [10, 9, 10, 12, -1, -1], startFret: 9 },
   ],
@@ -348,34 +350,34 @@ export const GUITAR_VOICINGS: Record<string, VoicingDefinition[]> = {
     { name: 'Barre 11th', frets: [11, 10, 11, 13, -1, -1], startFret: 10 },
   ],
   'E_dim': [
-    { name: 'Open', frets: [-1, 2, 0, 2, 1, 0], startFret: 0 },
+    { name: 'Open', frets: [-1, -1, 0, 2, 1, 0], startFret: 0 },
     { name: 'Barre 7th', frets: [-1, 8, 9, 8, 7, -1], startFret: 7 },
     { name: 'Barre 12th', frets: [12, 11, 12, 14, -1, -1], startFret: 11 },
   ],
   'F_dim': [
-    { name: 'Barre 1st', frets: [-1, 3, 1, 3, 2, 1], startFret: 1 },
-    { name: 'Barre 7th', frets: [7, 9, 7, 9, 8, -1], startFret: 7 },
+    { name: 'Barre 1st', frets: [-1, -1, 1, 3, 2, 1], startFret: 1 },
+    { name: 'Barre 8th', frets: [-1, 9, 10, 9, 8, -1], startFret: 8 },
   ],
   'F#_dim': [
-    { name: 'Barre 2nd', frets: [-1, 4, 2, 4, 3, 2], startFret: 2 },
-    { name: 'Barre 8th', frets: [8, 10, 8, 10, 9, -1], startFret: 8 },
+    { name: 'Barre 2nd', frets: [-1, -1, 2, 4, 3, 2], startFret: 2 },
+    { name: 'Barre 9th', frets: [-1, 10, 11, 10, 9, -1], startFret: 9 },
   ],
   'G_dim': [
-    { name: 'Barre 3rd', frets: [-1, 5, 3, 5, 4, 3], startFret: 3 },
-    { name: 'Barre 9th', frets: [9, 11, 9, 11, 10, -1], startFret: 9 },
+    { name: 'Barre 3rd', frets: [-1, -1, 3, 5, 4, 3], startFret: 3 },
+    { name: 'Barre 10th', frets: [-1, 11, 12, 11, 10, -1], startFret: 10 },
   ],
   'G#_dim': [
-    { name: 'Barre 4th', frets: [-1, 6, 4, 6, 5, 4], startFret: 4 },
-    { name: 'Barre 10th', frets: [10, 12, 10, 12, 11, -1], startFret: 10 },
+    { name: 'Barre 4th', frets: [-1, -1, 4, 6, 5, 4], startFret: 4 },
+    { name: 'Barre 11th', frets: [-1, 12, 13, 12, 11, -1], startFret: 11 },
   ],
   'A_dim': [
     { name: 'Open', frets: [-1, 1, 2, 1, 0, -1], startFret: 0 },
-    { name: 'Barre 5th', frets: [-1, 7, 5, 7, 6, 5], startFret: 5 },
-    { name: 'Barre 11th', frets: [11, 13, 11, 13, 12, -1], startFret: 11 },
+    { name: 'Barre 5th', frets: [-1, -1, 5, 7, 6, 5], startFret: 5 },
+    { name: 'Barre 12th', frets: [-1, 13, 14, 13, 12, -1], startFret: 12 },
   ],
   'A#_dim': [
-    { name: 'Barre 1st', frets: [-1, 2, 3, 2, 3, 1], startFret: 1 },
-    { name: 'Barre 6th', frets: [-1, 8, 6, 8, 7, 6], startFret: 6 },
+    { name: 'Barre 1st', frets: [-1, 2, 3, 2, 1, -1], startFret: 1 },
+    { name: 'Barre 6th', frets: [-1, -1, 6, 8, 7, 6], startFret: 6 },
   ],
   // B_dim already exists above
 
@@ -424,7 +426,7 @@ export const GUITAR_VOICINGS: Record<string, VoicingDefinition[]> = {
     { name: 'Barre 11th', frets: [11, 13, 11, 13, 12, -1], startFret: 11 },
   ],
   'A#_dim7': [
-    { name: 'Barre 1st', frets: [-1, 2, 3, 2, 3, -1], startFret: 1 },
+    { name: 'Barre 2nd', frets: [3, 2, 3, 2, -1, -1], startFret: 2 },
     { name: 'Barre 6th', frets: [6, 8, 6, 8, 7, 6], startFret: 6 },
   ],
   'B_dim7': [
@@ -482,3 +484,50 @@ export const GUITAR_VOICINGS: Record<string, VoicingDefinition[]> = {
     { name: 'Barre 7th', frets: [7, 8, 8, 9, -1, 7], startFret: 7 },
   ],
 };
+
+// --- sus2 / sus4 voicings ---------------------------------------------------
+// Derived from movable E-shape and A-shape barre forms; the barre fret for
+// each root is computed from the root's position on the low E / A string, so
+// every generated voicing contains exactly the {1,2,5} (sus2) or {1,4,5}
+// (sus4) intervals. Frets arrays use the same [high e, B, G, D, A, low E]
+// string order as the literal data above.
+const ordinalFret = (n: number): string => {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return `${n}th`;
+};
+
+const susShapeName = (barreFret: number): string =>
+  barreFret === 0 ? 'Open' : `Barre ${ordinalFret(barreFret)}`;
+
+interface SusShape {
+  openNoteIndex: number; // NOTES index of the shape's root string open note
+  build: (n: number) => number[];
+}
+
+const SUS_SHAPES: Record<'sus2' | 'sus4', SusShape[]> = {
+  sus4: [
+    // E-shape: root on low E string (Esus4 open = 022200)
+    { openNoteIndex: NOTES.indexOf('E'), build: n => [n, n, n + 2, n + 2, n + 2, n] },
+    // A-shape: root on A string (Asus4 open = x02230)
+    { openNoteIndex: NOTES.indexOf('A'), build: n => [n, n + 3, n + 2, n + 2, n, -1] },
+  ],
+  sus2: [
+    // E-shape: root on low E string (Esus2 open = 024400)
+    { openNoteIndex: NOTES.indexOf('E'), build: n => [n, n, n + 4, n + 4, n + 2, n] },
+    // A-shape: root on A string (Asus2 open = x02200)
+    { openNoteIndex: NOTES.indexOf('A'), build: n => [n, n, n + 2, n + 2, n, -1] },
+  ],
+};
+
+for (const susType of ['sus2', 'sus4'] as const) {
+  NOTES.forEach((root, rootIndex) => {
+    GUITAR_VOICINGS[`${root}_${susType}`] = SUS_SHAPES[susType]
+      .map(({ openNoteIndex, build }) => {
+        const barreFret = (rootIndex - openNoteIndex + 12) % 12;
+        return { name: susShapeName(barreFret), frets: build(barreFret), startFret: barreFret };
+      })
+      .sort((a, b) => a.startFret - b.startFret);
+  });
+}

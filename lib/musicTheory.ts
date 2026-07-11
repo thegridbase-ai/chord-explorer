@@ -142,6 +142,82 @@ export const displayNote = (note: Note, keyRoot?: Note, keyType?: ChordType): st
   return FLAT_NOTE_NAMES[NOTES.indexOf(note)];
 };
 
+// --- Inversions -------------------------------------------------------------
+
+// Clamps an inversion index into the valid range for a chord type:
+// 0..(chordTones - 1). Out-of-range values snap to the nearest bound.
+export const clampInversion = (inversion: number, chordType: ChordType): number => {
+  const formula = CHORD_TYPES[chordType];
+  if (!formula) return 0;
+  return Math.min(Math.max(inversion, 0), formula.intervals.length - 1);
+};
+
+// Returns the chord tones re-stacked so that the tone at `inversion` is the
+// lowest sounding note, with explicit octaves, ordered ascending. The stack is
+// kept within a two-octave window starting at baseOctave (the piano's C4-C6
+// range by default); if the top would spill over, the whole stack shifts down
+// one octave. Interval identity is preserved per tone.
+export const invertChordNotes = (
+  rootNote: Note,
+  chordType: ChordType,
+  inversion: number,
+  baseOctave: number = 4,
+): NoteWithInterval[] => {
+  const formula = CHORD_TYPES[chordType];
+  if (!formula) return [];
+
+  const inv = clampInversion(inversion, chordType);
+  const rootIndex = NOTES.indexOf(rootNote);
+  // Absolute pitch in semitones where C{baseOctave} = baseOctave * 12.
+  const basePitch = baseOctave * 12 + rootIndex;
+  const tones = formula.intervals.map(interval => ({
+    interval,
+    pitch: basePitch + interval,
+  }));
+
+  // Rotate: tones below the inversion point move up an octave.
+  const stacked = [
+    ...tones.slice(inv),
+    ...tones.slice(0, inv).map(t => ({ ...t, pitch: t.pitch + 12 })),
+  ];
+
+  // Keep the stack inside [C{baseOctave}, C{baseOctave + 2}].
+  const maxPitch = (baseOctave + 2) * 12;
+  const shift = Math.max(...stacked.map(t => t.pitch)) > maxPitch ? -12 : 0;
+
+  return stacked.map(t => {
+    const pitch = t.pitch + shift;
+    return {
+      note: NOTES[pitch % 12],
+      octave: Math.floor(pitch / 12),
+      interval: getIntervalName(t.interval),
+      midi: pitch + 12, // MIDI convention: C4 = 60
+    };
+  });
+};
+
+// Display name for a chord, using slash notation when inverted:
+// C, Am7, C/E, Am7/G. Both letters respect the enharmonic key context.
+export const chordDisplayName = (
+  rootNote: Note,
+  chordType: ChordType,
+  inversion: number = 0,
+  keyRoot?: Note,
+  keyType?: ChordType,
+): string => {
+  const formula = CHORD_TYPES[chordType];
+  const symbol = formula?.symbol ?? '';
+  const base = `${displayNote(rootNote, keyRoot, keyType)}${symbol}`;
+  if (!formula) return base;
+
+  const inv = clampInversion(inversion, chordType);
+  if (inv === 0) return base;
+
+  const bassIndex = (NOTES.indexOf(rootNote) + formula.intervals[inv]) % 12;
+  const bass = displayNote(NOTES[bassIndex], keyRoot, keyType);
+  return `${base}/${bass}`;
+};
+
 const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
 const MAJOR_SCALE_CHORD_TYPES: ChordType[] = ['Major', 'minor', 'minor', 'Major', 'Major', 'minor', 'dim'];
 const ROMAN_NUMERALS_MAJOR = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];

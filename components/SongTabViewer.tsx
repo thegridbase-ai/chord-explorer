@@ -18,7 +18,7 @@ const SongTabViewer: React.FC<SongTabViewerProps> = ({ onClose }) => {
   const [loadingTab, setLoadingTab] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<SongsterrTrack | null>(null);
   const [error, setError] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {

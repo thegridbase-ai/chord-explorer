@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { X, LayoutGrid, Flame } from 'lucide-react';
 import { Note, ChordType, CHORD_TYPES } from '../constants/musicData';
+import { displayNote } from '../lib/musicTheory';
 import { calculateCAGEDPositions, cagedShapeToVoicing, CAGEDShape } from '../lib/cagedSystem';
 
 interface CAGEDViewProps {
@@ -247,7 +248,7 @@ const CAGEDView: React.FC<CAGEDViewProps> = ({
 
   const [selectedShape, setSelectedShape] = useState<CAGEDShape>(shapes[0]);
 
-  const chordName = `${rootNote}${CHORD_TYPES[chordType].symbol}`;
+  const chordName = `${displayNote(rootNote, rootNote, chordType)}${CHORD_TYPES[chordType].symbol}`;
 
   const handleSelectAndClose = (shape: CAGEDShape) => {
     onSelectShape(shape);

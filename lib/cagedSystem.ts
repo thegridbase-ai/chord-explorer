@@ -92,11 +92,11 @@ const SHAPE_COLORS: Record<CAGEDShape['name'], string> = {
 
 // Descriptions
 const SHAPE_DESCRIPTIONS: Record<CAGEDShape['name'], string> = {
-  'C': 'C şekli - 5. telde (A) root. Orta pozisyon akoru.',
-  'A': 'A şekli - 5. telde (A) root. En yaygın barre chord şekli.',
-  'G': 'G şekli - 6. telde (E) root. Geniş aralıklı parmak pozisyonu.',
-  'E': 'E şekli - 6. telde (E) root. Barre chord\'ların temeli.',
-  'D': 'D şekli - 4. telde (D) root. Üst 4 tele odaklı.',
+  'C': 'C shape - root on the 5th string (A). Mid-position chord.',
+  'A': 'A shape - root on the 5th string (A). The most common barre chord shape.',
+  'G': 'G shape - root on the 6th string (E). Wide finger stretch.',
+  'E': 'E shape - root on the 6th string (E). The foundation of barre chords.',
+  'D': 'D shape - root on the 4th string (D). Focused on the top 4 strings.',
 };
 
 // Find where a note is on a specific string

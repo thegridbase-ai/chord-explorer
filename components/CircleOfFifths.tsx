@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { X, Circle as CircleIcon } from 'lucide-react';
 import { Note, ChordType, CHORD_TYPES } from '../constants/musicData';
+import { displayNote } from '../lib/musicTheory';
 
 interface CircleOfFifthsProps {
   selectedKey: Note;
@@ -255,7 +256,7 @@ const CircleOfFifths: React.FC<CircleOfFifthsProps> = ({
                 >
                   <div className="text-xs text-bone/40 font-mono mb-1">{chord.numeral}</div>
                   <div className="text-sm text-bone font-mono font-bold">
-                    {chord.root}{CHORD_TYPES[chord.type].symbol}
+                    {displayNote(chord.root, selectedKey, isMinor ? 'minor' : 'Major')}{CHORD_TYPES[chord.type].symbol}
                   </div>
                 </motion.div>
               ))}

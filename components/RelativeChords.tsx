@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Chord, CHORD_TYPES, Note, ChordType } from '../constants/musicData';
-import { getChordVoicing, getRomanNumeral, getChordCompatibilityScore, detectProgressionPattern, findCompatibleKeys, ChordCompatibility, CommonProgression, Key } from '../lib/musicTheory';
+import { getChordVoicing, getRomanNumeral, displayNote, getChordCompatibilityScore, detectProgressionPattern, findCompatibleKeys, ChordCompatibility, CommonProgression, Key } from '../lib/musicTheory';
 import { playChordFromChord, ensureAudioContext } from '../lib/audioEngine';
 import MiniFretboard from './MiniFretboard';
 import { Plus, Flame } from 'lucide-react';
@@ -125,6 +125,8 @@ const RelativeChords: React.FC<RelativeChordsProps> = ({ chords, selectedChord, 
             <ChordCard
               key={`${chord.root}-${chord.type}-${index}`}
               chord={chord}
+              keyRoot={selectedChord.root}
+              keyType={selectedChord.type}
               isSelected={isSelected}
               isInProgression={isInProgression}
               compatibilityRank={hasMultipleChords ? rank : undefined}
@@ -143,6 +145,8 @@ const RelativeChords: React.FC<RelativeChordsProps> = ({ chords, selectedChord, 
 
 interface ChordCardProps {
     chord: Chord;
+    keyRoot: Note;
+    keyType: ChordType;
     isSelected: boolean;
     isInProgression: boolean;
     compatibilityRank?: CompatibilityRank;
@@ -153,9 +157,10 @@ interface ChordCardProps {
     compact?: boolean;
 }
 
-const ChordCard: React.FC<ChordCardProps> = ({ chord, isSelected, isInProgression, compatibilityRank, matchingKeysCount, onSelect, onAdd, onHover, compact = false }) => {
+const ChordCard: React.FC<ChordCardProps> = ({ chord, keyRoot, keyType, isSelected, isInProgression, compatibilityRank, matchingKeysCount, onSelect, onAdd, onHover, compact = false }) => {
     const voicing = getChordVoicing(chord.root, chord.type);
-    const romanNumeral = getRomanNumeral(chord.root, chord.type);
+    const romanNumeral = getRomanNumeral(chord.root, chord.type, keyRoot, keyType);
+    const chordName = `${displayNote(chord.root, keyRoot, keyType)}${CHORD_TYPES[chord.type].symbol}`;
 
     const handlePlay = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -191,7 +196,7 @@ const ChordCard: React.FC<ChordCardProps> = ({ chord, isSelected, isInProgressio
                 <div className="flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                            <p className={`font-bold font-mono text-sm ${isSelected ? 'text-crimson' : 'text-bone'}`}>{chord.root}{CHORD_TYPES[chord.type].symbol}</p>
+                            <p className={`font-bold font-mono text-sm ${isSelected ? 'text-crimson' : 'text-bone'}`}>{chordName}</p>
                             {isGold && <Flame className="w-3 h-3 text-ember" />}
                         </div>
                         <p className="text-[11px] text-bone/30 font-mono">{romanNumeral}</p>
@@ -235,7 +240,7 @@ const ChordCard: React.FC<ChordCardProps> = ({ chord, isSelected, isInProgressio
                 <MiniFretboard voicing={voicing} />
                 <div className="flex-1 ml-4 min-w-0">
                     <p className={`font-bold font-mono text-lg ${isSelected ? 'text-crimson' : 'text-bone'}`}>
-                      {chord.root}{CHORD_TYPES[chord.type].symbol}
+                      {chordName}
                     </p>
                     <div className="flex items-center gap-2">
                         <p className="text-sm text-bone/30 font-mono">{romanNumeral}</p>

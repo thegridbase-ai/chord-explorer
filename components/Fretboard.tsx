@@ -20,8 +20,10 @@ const NOTES: Note[] = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#
 
 const INTERVAL_COLORS: Record<string, string> = {
   'Root': '#ef4444',
+  'Major 2nd': '#7c3aed',
   'Minor 3rd': '#7c3aed',
   'Major 3rd': '#7c3aed',
+  'Perfect 4th': '#7c3aed',
   'Perfect 5th': '#22c55e',
   'Diminished 5th': '#22c55e',
   'Augmented 5th': '#22c55e',

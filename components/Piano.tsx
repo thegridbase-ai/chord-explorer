@@ -1,12 +1,15 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { NoteWithInterval, Note } from '../constants/musicData';
+import { NoteWithInterval, Note, ChordType } from '../constants/musicData';
 import { ScaleNote } from '../lib/scaleTheory';
+import { displayNote } from '../lib/musicTheory';
 import { playNote, ensureAudioContext } from '../lib/audioEngine';
 
 interface PianoProps {
   notes: NoteWithInterval[];
   scaleNotes?: ScaleNote[];
+  keyRoot?: Note;
+  keyType?: ChordType;
 }
 
 const PIANO_KEYS = [
@@ -27,8 +30,10 @@ const PIANO_KEYS = [
 
 const INTERVAL_COLORS: Record<string, string> = {
   'Root': '#ef4444',
+  'Major 2nd': '#7c3aed',
   'Minor 3rd': '#7c3aed',
   'Major 3rd': '#7c3aed',
+  'Perfect 4th': '#7c3aed',
   'Perfect 5th': '#22c55e',
   'Diminished 5th': '#22c55e',
   'Augmented 5th': '#22c55e',
@@ -39,7 +44,7 @@ const INTERVAL_COLORS: Record<string, string> = {
 const SCALE_COLOR = '#DAA520';
 const EXTENSION_COLOR = '#ff6600';
 
-const Piano: React.FC<PianoProps> = ({ notes, scaleNotes }) => {
+const Piano: React.FC<PianoProps> = ({ notes, scaleNotes, keyRoot, keyType }) => {
   const [pressedKey, setPressedKey] = useState<string | null>(null);
 
   const noteMap = useMemo(() => {
@@ -130,7 +135,7 @@ const Piano: React.FC<PianoProps> = ({ notes, scaleNotes }) => {
               ) : hasScaleRing ? (
                 renderScaleRing(key.note as Note, false)
               ) : null}
-              <span className="absolute bottom-1 md:bottom-2 text-[10px] md:text-xs text-bg-abyss/70 font-mono font-bold pointer-events-none">{key.note === 'C' ? `${key.note}${key.octave}` : key.note}</span>
+              <span className="absolute bottom-1 md:bottom-2 text-[10px] md:text-xs text-bg-abyss/70 font-mono font-bold pointer-events-none">{key.note === 'C' ? `${key.note}${key.octave}` : displayNote(key.note as Note, keyRoot, keyType)}</span>
             </div>
           );
         })}

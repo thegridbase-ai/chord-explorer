@@ -29,8 +29,10 @@ export interface CommonProgression {
 const getIntervalName = (semitones: number): Interval => {
   switch (semitones) {
     case 0: return 'Root';
+    case 2: return 'Major 2nd';
     case 3: return 'Minor 3rd';
     case 4: return 'Major 3rd';
+    case 5: return 'Perfect 4th';
     case 6: return 'Diminished 5th';
     case 7: return 'Perfect 5th';
     case 8: return 'Augmented 5th';
@@ -112,6 +114,34 @@ export const getChordVoicing = (rootNote: Note, chordType: ChordType): ChordVoic
     return allVoicings.length > 0 ? allVoicings[0].voicing : [];
 };
 
+// --- Enharmonic display -----------------------------------------------------
+// The internal NOTES array stays sharp-based; these helpers only affect what
+// the UI shows when the effective key signature uses flats.
+const FLAT_NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+
+// Sharp-spelled internal roots of the flat keys:
+// F, Bb, Eb, Ab, Db, Gb major and their relative minors Dm, Gm, Cm, Fm, Bbm, Ebm.
+const FLAT_MAJOR_KEY_ROOTS: Note[] = ['F', 'A#', 'D#', 'G#', 'C#', 'F#'];
+const FLAT_MINOR_KEY_ROOTS: Note[] = ['D', 'G', 'C', 'F', 'A#', 'D#'];
+
+const MINOR_KEY_CHORD_TYPES: ChordType[] = ['minor', 'm7', 'dim', 'dim7'];
+
+export const isMinorKeyType = (chordType?: ChordType): boolean =>
+  chordType !== undefined && MINOR_KEY_CHORD_TYPES.includes(chordType);
+
+export const keyUsesFlats = (keyRoot: Note, keyType?: ChordType): boolean =>
+  isMinorKeyType(keyType)
+    ? FLAT_MINOR_KEY_ROOTS.includes(keyRoot)
+    : FLAT_MAJOR_KEY_ROOTS.includes(keyRoot);
+
+// Returns the display spelling for a note. With no key context (or a sharp
+// key) the sharp-based internal name is kept; in flat keys the note is
+// respelled with flats (e.g. A# -> Bb in F major).
+export const displayNote = (note: Note, keyRoot?: Note, keyType?: ChordType): string => {
+  if (keyRoot === undefined || !keyUsesFlats(keyRoot, keyType)) return note;
+  return FLAT_NOTE_NAMES[NOTES.indexOf(note)];
+};
+
 const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
 const MAJOR_SCALE_CHORD_TYPES: ChordType[] = ['Major', 'minor', 'minor', 'Major', 'Major', 'minor', 'dim'];
 const ROMAN_NUMERALS_MAJOR = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
@@ -145,26 +175,27 @@ export const getRelativeChords = (rootNote: Note, chordType: ChordType): Chord[]
     });
 };
 
-export const getRomanNumeral = (rootNote: Note, chordType: ChordType): string => {
-    // This is a simplified version. It assumes the rootNote is the tonic of the key.
-    const keyRootNote = rootNote;
-    const keyRootIndex = NOTES.indexOf(keyRootNote);
-    let scaleIntervals: number[];
-    let numerals: string[];
+// Roman numeral of a chord within a key context. When no key is given, the
+// chord is treated as the tonic of its own key (previous behavior).
+export const getRomanNumeral = (
+    chordRoot: Note,
+    chordType: ChordType,
+    keyRoot: Note = chordRoot,
+    keyType: ChordType = chordType,
+): string => {
+    const keyIsMinor = isMinorKeyType(keyType);
+    const scaleIntervals = keyIsMinor ? MINOR_SCALE_INTERVALS : MAJOR_SCALE_INTERVALS;
+    const numerals = keyIsMinor ? ROMAN_NUMERALS_MINOR : ROMAN_NUMERALS_MAJOR;
 
-    if (chordType.includes('minor') || chordType.includes('dim')) {
-        scaleIntervals = MINOR_SCALE_INTERVALS;
-        numerals = ROMAN_NUMERALS_MINOR;
-    } else {
-        scaleIntervals = MAJOR_SCALE_INTERVALS;
-        numerals = ROMAN_NUMERALS_MAJOR;
-    }
+    const interval = (NOTES.indexOf(chordRoot) - NOTES.indexOf(keyRoot) + 12) % 12;
+    const degreeIndex = scaleIntervals.indexOf(interval);
+    if (degreeIndex === -1) return '?';
 
-    // Find what degree the current chord is in its OWN key
-    const currentRootIndex = NOTES.indexOf(rootNote);
-    const degreeIndex = scaleIntervals.indexOf((currentRootIndex - keyRootIndex + 12) % 12);
-
-    return degreeIndex > -1 ? numerals[degreeIndex] : '?';
+    // Case reflects the actual chord quality, not just the diatonic default.
+    const base = numerals[degreeIndex].replace('°', '');
+    if (chordType === 'dim' || chordType === 'dim7') return `${base.toLowerCase()}°`;
+    if (chordType === 'minor' || chordType === 'm7') return base.toLowerCase();
+    return base.toUpperCase();
 };
 
 export const getRomanNumeralInKey = (chord: Chord, keyRoot: Note, keyMode: 'major' | 'minor'): string | null => {

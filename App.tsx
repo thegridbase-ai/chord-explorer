@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, LayoutGrid, Circle as CircleIcon, Volume2, Info, Skull, Flame, Music } from 'lucide-react';
 import ChordSelector from './components/ChordSelector';
@@ -12,24 +12,27 @@ import CAGEDView from './components/CAGEDView';
 import EmberParticles from './components/EmberParticles';
 import ScaleSelector from './components/ScaleSelector';
 import SongTabViewer from './components/SongTabViewer';
-import { getChordNotes, getAllChordVoicings, getRelativeChords, getRomanNumeral } from './lib/musicTheory';
+import { getChordNotes, getAllChordVoicings, getRelativeChords, getRomanNumeral, displayNote } from './lib/musicTheory';
+import { readStateFromUrl, writeStateToUrl } from './lib/urlState';
+import { loadStoredProgression, saveStoredProgression } from './lib/storage';
 import { getScaleNotes } from './lib/scaleTheory';
 import { NOTES, CHORD_TYPES, ChordType, Note, Chord as AppChord, ProgressionChord } from './constants/musicData';
 import { ScaleType, CHORD_TO_SCALE } from './constants/scaleData';
 import { playVoicing, ensureAudioContext } from './lib/audioEngine';
 
 const App: React.FC = () => {
-  const [rootNote, setRootNote] = useState<Note>('A');
-  const [chordType, setChordType] = useState<ChordType>('minor');
+  const [initialUrlState] = useState(readStateFromUrl);
+  const [rootNote, setRootNote] = useState<Note>(initialUrlState.root ?? 'A');
+  const [chordType, setChordType] = useState<ChordType>(initialUrlState.type ?? 'minor');
   const [hoveredChord, setHoveredChord] = useState<AppChord | null>(null);
   const [showCircleOfFifths, setShowCircleOfFifths] = useState(false);
   const [showCAGED, setShowCAGED] = useState(false);
   const [showSongTabs, setShowSongTabs] = useState(false);
-  const [selectedVoicingIndex, setSelectedVoicingIndex] = useState(0);
-  const [progression, setProgression] = useState<ProgressionChord[]>([]);
+  const [selectedVoicingIndex, setSelectedVoicingIndex] = useState(initialUrlState.voicing ?? 0);
+  const [progression, setProgression] = useState<ProgressionChord[]>(loadStoredProgression);
   const [showRelativeChords, setShowRelativeChords] = useState(false);
-  const [scaleActive, setScaleActive] = useState(false);
-  const [scaleType, setScaleType] = useState<ScaleType>('pentatonic_minor');
+  const [scaleActive, setScaleActive] = useState(initialUrlState.scale !== undefined);
+  const [scaleType, setScaleType] = useState<ScaleType>(initialUrlState.scale ?? 'pentatonic_minor');
   const [activeExtensions, setActiveExtensions] = useState<string[]>([]);
 
   const selectedChord = useMemo(() => ({ root: rootNote, type: chordType }), [rootNote, chordType]);
@@ -45,6 +48,16 @@ const App: React.FC = () => {
 
   const currentVoicingIndex = selectedVoicingIndex >= allVoicings.length ? 0 : selectedVoicingIndex;
   const currentVoicing = allVoicings[currentVoicingIndex];
+
+  // Keep sharable state in the URL query string
+  useEffect(() => {
+    writeStateToUrl(rootNote, chordType, currentVoicingIndex, scaleActive, scaleType);
+  }, [rootNote, chordType, currentVoicingIndex, scaleActive, scaleType]);
+
+  // Persist the progression across sessions
+  useEffect(() => {
+    saveStoredProgression(progression);
+  }, [progression]);
 
   const displayVoicing = useMemo(() => {
     if (hoveredChord) {
@@ -111,7 +124,7 @@ const App: React.FC = () => {
 
   const TheoryNote: React.FC<{ chord: AppChord }> = ({ chord }) => {
     const roman = getRomanNumeral(chord.root, chord.type);
-    const notes = getChordNotes(chord.root, chord.type).map(n => n.note).join(', ');
+    const notes = getChordNotes(chord.root, chord.type).map(n => displayNote(n.note, chord.root, chord.type)).join(', ');
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -125,7 +138,7 @@ const App: React.FC = () => {
         <div>
           <h4 className="text-sm font-semibold text-hellfire mb-1 font-metal">Theory Note</h4>
           <p className="text-sm text-bone/70 leading-relaxed">
-            <span className="font-mono text-hellfire">{chord.root}{CHORD_TYPES[chord.type].symbol}</span> ({roman}) consists of the notes: <span className="font-mono text-ember">{notes}</span>.
+            <span className="font-mono text-hellfire">{displayNote(chord.root, chord.root, chord.type)}{CHORD_TYPES[chord.type].symbol}</span> ({roman}) consists of the notes: <span className="font-mono text-ember">{notes}</span>.
             It serves as the '{roman}' chord in its relative major key.
             This chord has a {chord.type === 'minor' ? 'dark, melancholic' : 'powerful, commanding'} quality.
           </p>
@@ -239,20 +252,22 @@ const App: React.FC = () => {
             >
               <div>
                 <h2 className="text-3xl md:text-5xl font-gothic font-bold text-bone tracking-wider flex items-center gap-3">
-                  <span className="text-crimson glow-text-crimson">{rootNote}{CHORD_TYPES[chordType].symbol}</span>
+                  <span className="text-crimson glow-text-crimson">{displayNote(rootNote, rootNote, chordType)}{CHORD_TYPES[chordType].symbol}</span>
                   <span className="text-lg md:text-xl font-normal text-bone/40 font-mono">
-                    ({rootNote} {chordType})
+                    ({displayNote(rootNote, rootNote, chordType)} {chordType})
                   </span>
                 </h2>
                 <p className="text-bone/50 mt-2 text-sm font-industrial">
                   {chordType === 'minor' ? 'A dark chord forged in shadow and sorrow.' :
                    chordType === 'Major' ? 'A powerful chord commanding presence and might.' :
                    chordType === 'm7' ? 'A haunting minor seventh, echoing through the void.' :
-                   chordType === 'M7' ? 'A majestic seventh, resonating with dark beauty.' :
+                   chordType === 'maj7' ? 'A majestic seventh, resonating with dark beauty.' :
                    chordType === '7' ? 'A dominant force pulling all toward its resolve.' :
                    chordType === 'dim' ? 'A diminished specter of tension and unrest.' :
                    chordType === 'aug' ? 'An augmented cry, suspended between worlds.' :
-                   `The ${rootNote} ${chordType} chord, forged in fire.`}
+                   chordType === 'sus2' ? 'An open suspension, hovering before the storm.' :
+                   chordType === 'sus4' ? 'A restless suspension, aching to resolve.' :
+                   `The ${displayNote(rootNote, rootNote, chordType)} ${chordType} chord, forged in fire.`}
                 </p>
                 <div className="h-0.5 w-32 bg-gradient-to-r from-crimson/60 to-transparent mt-3" />
               </div>
@@ -278,7 +293,7 @@ const App: React.FC = () => {
                 <Flame className="w-3 h-3 text-ember" />
                 Piano View
               </h3>
-              <Piano notes={chordNotes} scaleNotes={scaleNotes} />
+              <Piano notes={chordNotes} scaleNotes={scaleNotes} keyRoot={rootNote} keyType={chordType} />
             </motion.div>
 
             {/* Voicing Selector */}

@@ -6,6 +6,7 @@ import { ProgressionChord, CHORD_TYPES } from '../constants/musicData';
 import MiniFretboard from './MiniFretboard';
 import { getAllChordVoicings, getChordVoicing } from '../lib/musicTheory';
 import { playProgression, stopPlayback, ensureAudioContext } from '../lib/audioEngine';
+import { loadStoredBpm, saveStoredBpm } from '../lib/storage';
 
 interface ProgressionBuilderProps {
   progression: ProgressionChord[];
@@ -16,7 +17,11 @@ interface ProgressionBuilderProps {
 
 const ProgressionBuilder: React.FC<ProgressionBuilderProps> = ({ progression, onClear, onRemove, onUpdateVoicing }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [bpm, setBpm] = useState(120);
+  const [bpm, setBpm] = useState(loadStoredBpm);
+
+  useEffect(() => {
+    saveStoredBpm(bpm);
+  }, [bpm]);
 
   const handlePlay = useCallback(async () => {
     if (progression.length === 0) return;

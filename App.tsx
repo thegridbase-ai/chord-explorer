@@ -12,7 +12,7 @@ import CAGEDView from './components/CAGEDView';
 import EmberParticles from './components/EmberParticles';
 import ScaleSelector from './components/ScaleSelector';
 import SongTabViewer from './components/SongTabViewer';
-import { getChordNotes, getAllChordVoicings, getRelativeChords, getRomanNumeral, displayNote, invertChordNotes, chordDisplayName } from './lib/musicTheory';
+import { getChordNotes, getAllChordVoicings, getRelativeChords, getRomanNumeral, displayNote, invertChordNotes, chordDisplayName, VoicingWithMeta } from './lib/musicTheory';
 import { readStateFromUrl, writeStateToUrl } from './lib/urlState';
 import { loadStoredProgression, saveStoredProgression } from './lib/storage';
 import { getScaleNotes } from './lib/scaleTheory';
@@ -21,6 +21,40 @@ import { ScaleType, CHORD_TO_SCALE } from './constants/scaleData';
 import { playVoicing, playChord, ensureAudioContext } from './lib/audioEngine';
 
 const INVERSION_LABELS = ['Root', '1st', '2nd', '3rd'];
+
+type BassFilter = 'all' | 6 | 5 | 4;
+
+const BASS_FILTER_OPTIONS: { value: BassFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 6, label: '6th (E)' },
+  { value: 5, label: '5th (A)' },
+  { value: 4, label: '4th (D)' },
+];
+
+// The 4th-string bucket also catches the rare voicing whose bass sits higher.
+const matchesBassFilter = (voicing: VoicingWithMeta, filter: BassFilter): boolean =>
+  filter === 'all' || voicing.bassString === filter || (filter === 4 && voicing.bassString < 4);
+
+// Pick the voicing to select after the chord or filter changes: same shape
+// name first, otherwise the closest neck position, staying on the requested
+// bass string when possible.
+const pickVoicingIndex = (
+  voicings: VoicingWithMeta[],
+  previous: VoicingWithMeta | undefined,
+  bassFilter: BassFilter
+): number => {
+  if (voicings.length === 0) return 0;
+  let pool = voicings.map((v, i) => ({ v, i })).filter(c => matchesBassFilter(c.v, bassFilter));
+  if (pool.length === 0) pool = voicings.map((v, i) => ({ v, i }));
+  if (previous) {
+    const byName = pool.find(c => c.v.name === previous.name);
+    if (byName) return byName.i;
+    return pool.reduce((best, c) =>
+      Math.abs(c.v.startFret - previous.startFret) < Math.abs(best.v.startFret - previous.startFret) ? c : best
+    ).i;
+  }
+  return pool[0].i;
+};
 
 const App: React.FC = () => {
   const [initialUrlState] = useState(readStateFromUrl);
@@ -31,6 +65,7 @@ const App: React.FC = () => {
   const [showCAGED, setShowCAGED] = useState(false);
   const [showSongTabs, setShowSongTabs] = useState(false);
   const [selectedVoicingIndex, setSelectedVoicingIndex] = useState(initialUrlState.voicing ?? 0);
+  const [bassFilter, setBassFilter] = useState<BassFilter>('all');
   const [progression, setProgression] = useState<ProgressionChord[]>(loadStoredProgression);
   const [showRelativeChords, setShowRelativeChords] = useState(false);
   const [scaleActive, setScaleActive] = useState(initialUrlState.scale !== undefined);
@@ -51,6 +86,13 @@ const App: React.FC = () => {
 
   const currentVoicingIndex = selectedVoicingIndex >= allVoicings.length ? 0 : selectedVoicingIndex;
   const currentVoicing = allVoicings[currentVoicingIndex];
+
+  const visibleVoicings = useMemo(
+    () => allVoicings
+      .map((voicing, index) => ({ voicing, index }))
+      .filter(({ voicing }) => matchesBassFilter(voicing, bassFilter)),
+    [allVoicings, bassFilter]
+  );
 
   // 0..(chordTones - 1); anything else falls back to root position
   const currentInversion = inversion > 0 && inversion < chordNotes.length ? inversion : 0;
@@ -97,18 +139,27 @@ const App: React.FC = () => {
   };
 
   const handleChordTypeChange = (newType: ChordType) => {
-    const currentVoicingName = currentVoicing?.name;
     const newVoicings = getAllChordVoicings(rootNote, newType);
-    const matchingIndex = currentVoicingName
-      ? newVoicings.findIndex(v => v.name === currentVoicingName)
-      : -1;
     setChordType(newType);
-    setSelectedVoicingIndex(matchingIndex >= 0 ? matchingIndex : 0);
+    setSelectedVoicingIndex(pickVoicingIndex(newVoicings, currentVoicing, bassFilter));
     setInversion(0);
     // Auto-suggest scale when chord type changes
     const suggested = CHORD_TO_SCALE[newType];
     if (suggested) setScaleType(suggested);
     setActiveExtensions([]);
+  };
+
+  const handleRootChange = (root: Note) => {
+    setRootNote(root);
+    setSelectedVoicingIndex(pickVoicingIndex(getAllChordVoicings(root, chordType), undefined, bassFilter));
+    setInversion(0);
+  };
+
+  const handleBassFilterChange = (filter: BassFilter) => {
+    setBassFilter(filter);
+    if (currentVoicing && !matchesBassFilter(currentVoicing, filter)) {
+      setSelectedVoicingIndex(pickVoicingIndex(allVoicings, currentVoicing, filter));
+    }
   };
 
   const handleToggleExtension = (extId: string) => {
@@ -242,7 +293,7 @@ const App: React.FC = () => {
           <ChordSelector
             selectedRoot={rootNote}
             selectedType={chordType}
-            onRootChange={(root) => { setRootNote(root); setSelectedVoicingIndex(0); setInversion(0); }}
+            onRootChange={handleRootChange}
             onTypeChange={handleChordTypeChange}
           />
         </aside>
@@ -252,7 +303,7 @@ const App: React.FC = () => {
           <ChordSelector
             selectedRoot={rootNote}
             selectedType={chordType}
-            onRootChange={(root) => { setRootNote(root); setSelectedVoicingIndex(0); setInversion(0); }}
+            onRootChange={handleRootChange}
             onTypeChange={handleChordTypeChange}
             compact
           />
@@ -321,16 +372,41 @@ const App: React.FC = () => {
               transition={{ delay: 0.15 }}
               className="mb-6"
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h3 className="text-xs font-semibold text-bone/40 uppercase tracking-[0.2em] font-metal flex items-center gap-2">
                   <Flame className="w-3 h-3 text-ember" />
                   Guitar Voicings
                 </h3>
-                <span className="text-xs text-bone/30 font-mono">{allVoicings.length} variation{allVoicings.length !== 1 ? 's' : ''} found</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-bone/30 font-mono uppercase tracking-wider">Bass</span>
+                  <div className="flex gap-1">
+                    {BASS_FILTER_OPTIONS.map(({ value, label }) => {
+                      const count = value === 'all'
+                        ? allVoicings.length
+                        : allVoicings.filter(v => matchesBassFilter(v, value)).length;
+                      return (
+                        <button
+                          key={String(value)}
+                          onClick={() => handleBassFilterChange(value)}
+                          disabled={count === 0 || !!hoveredChord}
+                          className={`px-2 py-1 rounded text-[11px] font-mono border transition-all ${
+                            bassFilter === value
+                              ? 'bg-crimson/20 border-crimson text-crimson'
+                              : count === 0
+                                ? 'bg-bone/5 border-bone/5 text-bone/20 cursor-not-allowed'
+                                : 'bg-bone/5 border-bone/10 text-bone/50 hover:bg-bone/10 hover:text-bone'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
               <div className={`flex gap-2 overflow-x-auto pb-2 transition-opacity ${hoveredChord ? 'opacity-40' : ''}`}>
-                {allVoicings.length > 1 ? (
-                  allVoicings.map((voicing, index) => (
+                {visibleVoicings.length > 0 ? (
+                  visibleVoicings.map(({ voicing, index }) => (
                     <motion.button
                       key={index}
                       whileHover={{ scale: 1.03 }}

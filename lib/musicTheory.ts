@@ -5,7 +5,17 @@ export interface VoicingWithMeta {
   name: string;
   startFret: number;
   voicing: ChordVoicing;
+  bassString: number; // 6 = low E, 5 = A, 4 = D (string carrying the bass note)
 }
+
+// frets order: [high e, B, G, D, A, low E] — the bass string is the last
+// sounding entry; index i maps to string number i + 1 (index 5 = 6th string).
+const getBassString = (frets: number[]): number => {
+  for (let i = 5; i >= 0; i--) {
+    if (frets[i] >= 0) return i + 1;
+  }
+  return 6;
+};
 
 export interface Key {
   root: Note;
@@ -98,6 +108,7 @@ export const getAllChordVoicings = (rootNote: Note, chordType: ChordType): Voici
         return [{
             name: 'Root Position',
             startFret: 0,
+            bassString: 6,
             voicing: [{string: 5, fret: NOTES.indexOf(rootNote) % 12, interval: 'Root'}]
         }];
     }
@@ -105,6 +116,7 @@ export const getAllChordVoicings = (rootNote: Note, chordType: ChordType): Voici
     return voicingDefs.map((def: VoicingDefinition) => ({
         name: def.name,
         startFret: def.startFret,
+        bassString: getBassString(def.frets),
         voicing: convertFretsToVoicing(def.frets, rootNote, chordType)
     }));
 };

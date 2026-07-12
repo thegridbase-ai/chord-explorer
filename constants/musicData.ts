@@ -531,3 +531,39 @@ for (const susType of ['sus2', 'sus4'] as const) {
       .sort((a, b) => a.startFret - b.startFret);
   });
 }
+
+// --- D-shape voicings (root on the 4th string) -------------------------------
+// Movable top-4-string forms derived from the open D-family shapes, so every
+// root/type combo has at least one voicing whose bass note is the root on the
+// D string. Offsets are relative to the root fret n on the D string; frets
+// arrays use the same [high e, B, G, D, A, low E] order as the data above.
+// Appended after the curated voicings to keep existing voicing indices stable
+// (URL state and stored progressions reference voicings by index).
+const D_SHAPE_OFFSETS: Record<ChordType, [number, number, number, number]> = {
+  'Major': [2, 3, 2, 0], // D:    xx0232
+  'minor': [1, 3, 2, 0], // Dm:   xx0231
+  'sus2':  [0, 3, 2, 0], // Dsus2: xx0230
+  'sus4':  [3, 3, 2, 0], // Dsus4: xx0233
+  'dim':   [1, 3, 1, 0], // Ddim:  xx0131
+  'aug':   [2, 3, 3, 0], // Daug:  xx0332
+  '7':     [2, 1, 2, 0], // D7:    xx0212
+  'm7':    [1, 1, 2, 0], // Dm7:   xx0211
+  'maj7':  [2, 2, 2, 0], // Dmaj7: xx0222
+  'dim7':  [1, 0, 1, 0], // Ddim7: xx0101
+};
+
+const D_STRING_INDEX = NOTES.indexOf('D');
+
+for (const type of CHORD_TYPE_IDS) {
+  NOTES.forEach((root, rootIndex) => {
+    const n = (rootIndex - D_STRING_INDEX + 12) % 12;
+    const offsets = D_SHAPE_OFFSETS[type];
+    const frets = [offsets[0] + n, offsets[1] + n, offsets[2] + n, offsets[3] + n, -1, -1];
+    const key = `${root}_${type}`;
+    const defs = GUITAR_VOICINGS[key] ?? (GUITAR_VOICINGS[key] = []);
+    const isDuplicate = defs.some(def => def.frets.every((f, i) => f === frets[i]));
+    if (!isDuplicate) {
+      defs.push({ name: 'D Shape', frets, startFret: n });
+    }
+  });
+}

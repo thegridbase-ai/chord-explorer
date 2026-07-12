@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, LayoutGrid, Circle as CircleIcon, Volume2, Info, Skull, Flame, Music } from 'lucide-react';
+import { Play, LayoutGrid, Circle as CircleIcon, Volume2, Info, Skull, Flame, Music, Plus } from 'lucide-react';
 import ChordSelector from './components/ChordSelector';
 import Piano from './components/Piano';
 import Fretboard from './components/Fretboard';
@@ -340,15 +340,32 @@ const App: React.FC = () => {
                 </p>
                 <div className="h-0.5 w-32 bg-gradient-to-r from-crimson/60 to-transparent mt-3" />
               </div>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={handlePlayChord}
-                aria-label="Play chord"
-                className="w-12 h-12 rounded-full bg-crimson/15 text-crimson border border-crimson/30 flex items-center justify-center hover:bg-crimson/25 transition-colors flame-glow"
-              >
-                <Volume2 className="w-5 h-5" />
-              </motion.button>
+              <div className="flex items-center gap-2 md:gap-3">
+                <motion.button
+                  whileHover={{ scale: progression.length < 8 ? 1.1 : 1 }}
+                  whileTap={{ scale: progression.length < 8 ? 0.9 : 1 }}
+                  onClick={() => handleAddChordToProgression(selectedChord)}
+                  disabled={progression.length >= 8}
+                  aria-label="Add chord to progression"
+                  title={progression.length >= 8 ? 'Progression is full (8 chords)' : 'Add to progression'}
+                  className={`w-12 h-12 rounded-full border flex items-center justify-center transition-colors ${
+                    progression.length >= 8
+                      ? 'bg-bone/5 text-bone/20 border-bone/10 cursor-not-allowed'
+                      : 'bg-ember/10 text-ember border-ember/30 hover:bg-ember/20'
+                  }`}
+                >
+                  <Plus className="w-5 h-5" />
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={handlePlayChord}
+                  aria-label="Play chord"
+                  className="w-12 h-12 rounded-full bg-crimson/15 text-crimson border border-crimson/30 flex items-center justify-center hover:bg-crimson/25 transition-colors flame-glow"
+                >
+                  <Volume2 className="w-5 h-5" />
+                </motion.button>
+              </div>
             </motion.div>
 
             {/* Piano */}

@@ -71,6 +71,25 @@ const getChordNotesForPlayback = (chord: Chord, baseOctave: number = 4): string[
   });
 };
 
+const STRUM_SECONDS = 0.03;
+let lastStrumAttack = 0;
+
+// Strum start times on the audio clock, 30 ms per string and always after the previous strum's last attack.
+// PluckSynth's noise source throws when a start does not strictly follow the previous one, which a
+// setTimeout strum hit whenever two callbacks fired late in the same task and read the same clock.
+export const strumStartTimes = (count: number, now: number, previousAttack: number): number[] => {
+  const first = Math.max(now, previousAttack + STRUM_SECONDS);
+  return Array.from({ length: count }, (_, i) => first + i * STRUM_SECONDS);
+};
+
+const strumGuitar = (notes: string[]): void => {
+  if (!guitarSynth) return;
+  strumStartTimes(notes.length, Tone.now(), lastStrumAttack).forEach((time, i) => {
+    guitarSynth?.triggerAttackRelease(notes[i], '2n', time);
+    lastStrumAttack = time;
+  });
+};
+
 export const playChord = async (
   notes: string[],
   instrument: 'piano' | 'guitar'
@@ -80,11 +99,7 @@ export const playChord = async (
   if (instrument === 'piano' && pianoSynth) {
     pianoSynth.triggerAttackRelease(notes, '2n');
   } else if (instrument === 'guitar' && guitarSynth) {
-    notes.forEach((note, index) => {
-      setTimeout(() => {
-        guitarSynth?.triggerAttackRelease(note, '2n');
-      }, index * 30);
-    });
+    strumGuitar(notes);
   }
 };
 
@@ -189,8 +204,8 @@ export const playChordFromChord = async (
   }
 };
 
-// Guitar standard tuning MIDI values: string 0 (high E) to string 5 (low E)
-const STRING_MIDI_BASE = [64, 59, 55, 50, 45, 40];
+// Standard tuning open-string MIDI by FretPosition.string: 0 = low E ... 5 = high e
+const STRING_MIDI_BASE = [40, 45, 50, 55, 59, 64];
 
 const fretPositionToNote = (string: number, fret: number): string => {
   const midi = STRING_MIDI_BASE[string] + fret;
@@ -199,22 +214,20 @@ const fretPositionToNote = (string: number, fret: number): string => {
   return `${noteName}${octave}`;
 };
 
+// Note names in strum order, lowest string first
+export const voicingToNoteNames = (voicing: ChordVoicing): string[] =>
+  [...voicing].sort((a, b) => a.string - b.string).map(pos => fretPositionToNote(pos.string, pos.fret));
+
 export const playVoicing = async (
   voicing: ChordVoicing,
   instrument: 'piano' | 'guitar' = 'guitar'
 ): Promise<void> => {
   await initializeAudio();
 
-  // Sort low to high string (5→0) for natural strum order
-  const sorted = [...voicing].sort((a, b) => b.string - a.string);
-  const notes = sorted.map(pos => fretPositionToNote(pos.string, pos.fret));
+  const notes = voicingToNoteNames(voicing);
 
   if (instrument === 'guitar' && guitarSynth) {
-    notes.forEach((note, i) => {
-      setTimeout(() => {
-        guitarSynth?.triggerAttackRelease(note, '2n');
-      }, i * 30); // 30ms strum delay between strings
-    });
+    strumGuitar(notes);
   } else if (instrument === 'piano' && pianoSynth) {
     pianoSynth.triggerAttackRelease(notes, '2n');
   }

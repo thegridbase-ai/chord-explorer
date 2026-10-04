@@ -12,13 +12,31 @@ import CAGEDView from './components/CAGEDView';
 import EmberParticles from './components/EmberParticles';
 import ScaleSelector from './components/ScaleSelector';
 import SongTabViewer from './components/SongTabViewer';
+import { PlayableVoicings } from './components/PlayableVoicings';
+import { HandProfileModal } from './components/HandProfileModal';
 import { getChordNotes, getAllChordVoicings, getRelativeChords, getRomanNumeral, displayNote, invertChordNotes, chordDisplayName, VoicingWithMeta } from './lib/musicTheory';
 import { readStateFromUrl, writeStateToUrl } from './lib/urlState';
 import { loadStoredProgression, saveStoredProgression } from './lib/storage';
 import { getScaleNotes } from './lib/scaleTheory';
-import { ChordType, Note, Chord as AppChord, ProgressionChord } from './constants/musicData';
+import { ChordType, Note, Chord as AppChord, ProgressionChord, GUITAR_VOICINGS, NOTES } from './constants/musicData';
 import { ScaleType, CHORD_TO_SCALE } from './constants/scaleData';
 import { playVoicing, playChord, ensureAudioContext } from './lib/audioEngine';
+import { DEFAULT_HAND_PROFILE, HandProfile, Shape, handProfileHash } from './lib/engine';
+import { loadHandProfile, saveHandProfile, clearHandProfile, isDefaultHandProfile } from './lib/handProfileStorage';
+import {
+  CuratedClass,
+  VoicingChoice,
+  bassFilterMatches,
+  chooseGeneratedShape,
+  chooseInversion,
+  curatedBadge,
+  describeSharedShape,
+  findGeneratedVoicing,
+  fingerLabels,
+  generatePlayable,
+  shapeNoteNames,
+  shapeToFretPositions,
+} from './lib/playable';
 
 const INVERSION_LABELS = ['Root', '1st', '2nd', '3rd'];
 
@@ -34,6 +52,13 @@ const BASS_FILTER_OPTIONS: { value: BassFilter; label: string }[] = [
 // The 4th-string bucket also catches the rare voicing whose bass sits higher.
 const matchesBassFilter = (voicing: VoicingWithMeta, filter: BassFilter): boolean =>
   filter === 'all' || voicing.bassString === filter || (filter === 4 && voicing.bassString < 4);
+
+// Text carries the meaning; the color only repeats it.
+const CURATED_BADGE_STYLES: Record<CuratedClass, string> = {
+  'no-barre': 'border-green/40 bg-green/10 text-green',
+  'needs-barre': 'border-gold/40 bg-gold/10 text-gold',
+  'out-of-reach': 'border-ember/40 bg-ember/10 text-ember',
+};
 
 // Pick the voicing to select after the chord or filter changes: same shape
 // name first, otherwise the closest neck position, staying on the requested
@@ -72,6 +97,10 @@ const App: React.FC = () => {
   const [scaleType, setScaleType] = useState<ScaleType>(initialUrlState.scale ?? 'pentatonic_minor');
   const [activeExtensions, setActiveExtensions] = useState<string[]>([]);
   const [inversion, setInversion] = useState(initialUrlState.inv ?? 0);
+  const [handProfile, setHandProfile] = useState<HandProfile>(loadHandProfile);
+  const [showHandProfile, setShowHandProfile] = useState(false);
+  // "Playable for me" pick: separate from the curated index so `voicing` links and progressions stay valid
+  const [generatedShape, setGeneratedShape] = useState<Shape | null>(initialUrlState.gv ?? null);
 
   const selectedChord = useMemo(() => ({ root: rootNote, type: chordType }), [rootNote, chordType]);
   const chordNotes = useMemo(() => getChordNotes(rootNote, chordType), [rootNote, chordType]);
@@ -94,6 +123,49 @@ const App: React.FC = () => {
     [allVoicings, bassFilter]
   );
 
+  // Generation and classification are keyed by the profile's value, not its object identity
+  const handProfileKey = handProfileHash(handProfile);
+  const isCustomHandProfile = !isDefaultHandProfile(handProfile);
+  const rootPc = NOTES.indexOf(rootNote);
+
+  const playableGroups = useMemo(
+    () => generatePlayable(rootNote, chordType, handProfile),
+    [rootNote, chordType, handProfileKey]
+  );
+
+  // Same order as allVoicings (both follow GUITAR_VOICINGS), so index i badges voicing i
+  const curatedBadges = useMemo(
+    () => (GUITAR_VOICINGS[`${rootNote}_${chordType}`] ?? []).map(def => curatedBadge(def, handProfile)),
+    [rootNote, chordType, handProfileKey]
+  );
+
+  const generatedMatch = useMemo(
+    () => (generatedShape ? findGeneratedVoicing(playableGroups, generatedShape) : null),
+    [playableGroups, generatedShape]
+  );
+
+  const selectedGenerated = useMemo(() => {
+    if (!generatedMatch) return null;
+    const group = playableGroups.find(g => g.id === generatedMatch.groupId);
+    return { voicing: generatedMatch.voicing, groupLabel: group?.label ?? '' };
+  }, [playableGroups, generatedMatch]);
+
+  // A gv that the generator did not return (shared link, other profile) is still shown, named honestly
+  const sharedShape = useMemo(
+    () => (generatedShape && !generatedMatch ? describeSharedShape(generatedShape, rootPc, handProfile) : null),
+    [generatedShape, generatedMatch, rootPc, handProfileKey]
+  );
+
+  const generatedDisplay = useMemo(() => {
+    if (!generatedShape) return null;
+    const fingering = generatedMatch?.voicing.fingering ?? sharedShape?.fingering ?? null;
+    return {
+      voicing: shapeToFretPositions(generatedShape, rootPc),
+      labels: fingering ? fingerLabels(generatedShape, fingering) : undefined,
+      mutedStrings: generatedShape.flatMap((fret, string) => (fret === null ? [string] : [])),
+    };
+  }, [generatedShape, generatedMatch, sharedShape, rootPc]);
+
   // 0..(chordTones - 1); anything else falls back to root position
   const currentInversion = inversion > 0 && inversion < chordNotes.length ? inversion : 0;
   const invertedNotes = useMemo(
@@ -103,8 +175,8 @@ const App: React.FC = () => {
 
   // Keep sharable state in the URL query string
   useEffect(() => {
-    writeStateToUrl(rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion);
-  }, [rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion]);
+    writeStateToUrl(rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion, generatedShape);
+  }, [rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion, generatedShape]);
 
   // Persist the progression across sessions
   useEffect(() => {
@@ -116,8 +188,9 @@ const App: React.FC = () => {
       const hoverVoicings = getAllChordVoicings(hoveredChord.root, hoveredChord.type);
       return hoverVoicings[0]?.voicing || [];
     }
+    if (generatedDisplay) return generatedDisplay.voicing;
     return currentVoicing?.voicing || [];
-  }, [hoveredChord, currentVoicing]);
+  }, [hoveredChord, currentVoicing, generatedDisplay]);
 
   const handleAddChordToProgression = (chord: AppChord) => {
     if (progression.length < 8) {
@@ -140,6 +213,7 @@ const App: React.FC = () => {
 
   const handleChordTypeChange = (newType: ChordType) => {
     const newVoicings = getAllChordVoicings(rootNote, newType);
+    if (newType !== chordType) setGeneratedShape(null);
     setChordType(newType);
     setSelectedVoicingIndex(pickVoicingIndex(newVoicings, currentVoicing, bassFilter));
     setInversion(0);
@@ -150,6 +224,7 @@ const App: React.FC = () => {
   };
 
   const handleRootChange = (root: Note) => {
+    if (root !== rootNote) setGeneratedShape(null);
     setRootNote(root);
     setSelectedVoicingIndex(pickVoicingIndex(getAllChordVoicings(root, chordType), undefined, bassFilter));
     setInversion(0);
@@ -160,6 +235,38 @@ const App: React.FC = () => {
     if (currentVoicing && !matchesBassFilter(currentVoicing, filter)) {
       setSelectedVoicingIndex(pickVoicingIndex(allVoicings, currentVoicing, filter));
     }
+    // A generated pick that the filter hides falls back to the curated voicing
+    if (generatedMatch && !bassFilterMatches(generatedMatch.voicing, filter)) {
+      setGeneratedShape(null);
+    }
+  };
+
+  const applyVoicingChoice = (choice: VoicingChoice) => {
+    setGeneratedShape(choice.generatedShape);
+    setInversion(choice.inversion);
+  };
+
+  const handleSelectCuratedVoicing = (index: number) => {
+    setSelectedVoicingIndex(index);
+    setGeneratedShape(null);
+  };
+
+  const applyHandProfile = (next: HandProfile) => {
+    setHandProfile(next);
+    // Keep a generated pick only while the new profile still generates it
+    if (generatedShape && generatedMatch && !findGeneratedVoicing(generatePlayable(rootNote, chordType, next), generatedShape)) {
+      setGeneratedShape(null);
+    }
+  };
+
+  const handleHandProfileChange = (next: HandProfile) => {
+    saveHandProfile(next);
+    applyHandProfile(next);
+  };
+
+  const handleHandProfileReset = () => {
+    clearHandProfile();
+    applyHandProfile(DEFAULT_HAND_PROFILE);
   };
 
   const handleToggleExtension = (extId: string) => {
@@ -169,6 +276,7 @@ const App: React.FC = () => {
   };
 
   const handleSelectChord = (root: Note, type: ChordType) => {
+    if (root !== rootNote || type !== chordType) setGeneratedShape(null);
     setRootNote(root);
     setChordType(type);
     setSelectedVoicingIndex(0);
@@ -176,14 +284,19 @@ const App: React.FC = () => {
   }
 
   const handleCircleKeySelect = (key: Note, isMinor: boolean) => {
+    const type: ChordType = isMinor ? 'minor' : 'Major';
+    if (key !== rootNote || type !== chordType) setGeneratedShape(null);
     setRootNote(key);
-    setChordType(isMinor ? 'minor' : 'Major');
+    setChordType(type);
     setInversion(0);
   }
 
   const handlePlayChord = async () => {
     await ensureAudioContext();
-    if (currentInversion > 0 && !hoveredChord) {
+    if (generatedShape && !hoveredChord) {
+      // Generated shapes sound exactly what the engine's shapeToMidi says, never via the curated path
+      playChord(shapeNoteNames(generatedShape), 'guitar');
+    } else if (currentInversion > 0 && !hoveredChord) {
       // Play the inverted note stack on the piano synth
       playChord(invertedNotes.map(n => `${n.note}${n.octave}`), 'piano');
     } else {
@@ -406,6 +519,7 @@ const App: React.FC = () => {
                           key={String(value)}
                           onClick={() => handleBassFilterChange(value)}
                           disabled={count === 0 || !!hoveredChord}
+                          aria-pressed={bassFilter === value}
                           className={`px-2 py-1 rounded text-[11px] font-mono border transition-all ${
                             bassFilter === value
                               ? 'bg-crimson/20 border-crimson text-crimson'
@@ -423,25 +537,43 @@ const App: React.FC = () => {
               </div>
               <div className={`flex gap-2 overflow-x-auto pb-2 transition-opacity ${hoveredChord ? 'opacity-40' : ''}`}>
                 {visibleVoicings.length > 0 ? (
-                  visibleVoicings.map(({ voicing, index }) => (
-                    <motion.button
-                      key={index}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => setSelectedVoicingIndex(index)}
-                      disabled={!!hoveredChord}
-                      className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all border font-mono ${
-                        currentVoicingIndex === index
-                          ? 'bg-crimson/20 border-crimson text-crimson shadow-[0_0_10px_rgba(220,20,60,0.3)]'
-                          : 'bg-bone/5 border-bone/10 text-bone/60 hover:bg-bone/10 hover:text-bone'
-                      } ${hoveredChord ? 'cursor-not-allowed' : ''}`}
-                    >
-                      {voicing.name}
-                      {voicing.startFret > 0 && (
-                        <span className="ml-1 text-xs opacity-70">({voicing.startFret}fr)</span>
-                      )}
-                    </motion.button>
-                  ))
+                  visibleVoicings.map(({ voicing, index }) => {
+                    const isCurrent = currentVoicingIndex === index;
+                    // While a generated voicing is shown, the curated pick stays remembered (dashed outline)
+                    const isShown = isCurrent && !generatedShape;
+                    const badge = curatedBadges[index];
+                    return (
+                      <motion.button
+                        key={index}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => handleSelectCuratedVoicing(index)}
+                        disabled={!!hoveredChord}
+                        aria-pressed={isShown}
+                        title={isCurrent && generatedShape ? 'Show this curated voicing again' : undefined}
+                        className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all border font-mono ${
+                          isShown
+                            ? 'bg-crimson/20 border-crimson text-crimson shadow-[0_0_10px_rgba(220,20,60,0.3)]'
+                            : isCurrent
+                              ? 'bg-bone/5 border-dashed border-crimson/60 text-bone/80 hover:bg-bone/10 hover:text-bone'
+                              : 'bg-bone/5 border-bone/10 text-bone/60 hover:bg-bone/10 hover:text-bone'
+                        } ${hoveredChord ? 'cursor-not-allowed' : ''}`}
+                      >
+                        {voicing.name}
+                        {voicing.startFret > 0 && (
+                          <span className="ml-1 text-xs opacity-70">({voicing.startFret}fr)</span>
+                        )}
+                        {badge && (
+                          <span
+                            title={badge.title}
+                            className={`ml-2 inline-block align-middle px-1.5 py-px rounded border text-[10px] leading-tight font-mono tracking-wide ${CURATED_BADGE_STYLES[badge.kind]}`}
+                          >
+                            {badge.label}
+                          </span>
+                        )}
+                      </motion.button>
+                    );
+                  })
                 ) : (
                   <span className="text-sm text-bone/40 font-mono">{allVoicings[0]?.name || 'Default'}</span>
                 )}
@@ -450,6 +582,23 @@ const App: React.FC = () => {
                 )}
               </div>
             </motion.div>
+
+            {/* Playable for me: engine voicings for the saved hand profile */}
+            <PlayableVoicings
+              groups={playableGroups}
+              profile={handProfile}
+              isCustomProfile={isCustomHandProfile}
+              bassFilter={bassFilter}
+              bassFilterLabel={BASS_FILTER_OPTIONS.find(o => o.value === bassFilter)?.label ?? ''}
+              selectedShape={generatedShape}
+              selected={selectedGenerated}
+              sharedShape={sharedShape}
+              curatedName={currentVoicing?.name ?? null}
+              disabled={!!hoveredChord}
+              onSelect={shape => applyVoicingChoice(chooseGeneratedShape(shape))}
+              onBackToCurated={() => setGeneratedShape(null)}
+              onOpenProfile={() => setShowHandProfile(true)}
+            />
 
             {/* Inversion Selector */}
             <motion.div
@@ -475,10 +624,10 @@ const App: React.FC = () => {
                       key={index}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
-                      onClick={() => setInversion(index)}
+                      onClick={() => applyVoicingChoice(chooseInversion(index))}
                       disabled={!!hoveredChord}
                       className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all border font-mono text-left ${
-                        currentInversion === index
+                        currentInversion === index && !generatedShape
                           ? 'bg-crimson/20 border-crimson text-crimson shadow-[0_0_10px_rgba(220,20,60,0.3)]'
                           : 'bg-bone/5 border-bone/10 text-bone/60 hover:bg-bone/10 hover:text-bone'
                       } ${hoveredChord ? 'cursor-not-allowed' : ''}`}
@@ -507,8 +656,15 @@ const App: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <Fretboard voicing={displayVoicing} chordNotes={chordNotes} scaleNotes={scaleNotes} isPreview={hoveredChord !== null} />
-              {currentInversion > 0 && (
+              <Fretboard
+                voicing={displayVoicing}
+                chordNotes={chordNotes}
+                scaleNotes={scaleNotes}
+                isPreview={hoveredChord !== null}
+                labels={hoveredChord ? undefined : generatedDisplay?.labels}
+                mutedStrings={hoveredChord ? undefined : generatedDisplay?.mutedStrings}
+              />
+              {currentInversion > 0 && !generatedShape && (
                 <p className="mt-2 text-xs text-bone/30 font-mono italic">Guitar voicings shown in root position</p>
               )}
             </motion.div>
@@ -609,6 +765,17 @@ const App: React.FC = () => {
       <AnimatePresence>
         {showSongTabs && (
           <SongTabViewer onClose={() => setShowSongTabs(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showHandProfile && (
+          <HandProfileModal
+            profile={handProfile}
+            onChange={handleHandProfileChange}
+            onReset={handleHandProfileReset}
+            onClose={() => setShowHandProfile(false)}
+          />
         )}
       </AnimatePresence>
     </div>

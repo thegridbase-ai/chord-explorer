@@ -8,11 +8,15 @@ interface FretboardProps {
   chordNotes?: NoteWithInterval[];
   scaleNotes?: ScaleNote[];
   isPreview?: boolean;
+  /** Text drawn inside active dots (finger numbers), keyed `${string}-${fret}`. */
+  labels?: Record<string, string>;
+  /** Strings (0 = low E) drawn with an "x" at the nut. */
+  mutedStrings?: number[];
 }
 
 const FRET_COUNT = 15;
 const STRING_COUNT = 6;
-const FRET_MARKERS = [3, 5, 7, 9, 12, 15];
+const FRET_MARKERS = [3, 5, 7, 9, 12, 15, 17, 19, 21];
 
 // Standard tuning matching voicing convention: string 0 = low E (E2), string 5 = high E (E4)
 const OPEN_STRING_MIDI = [40, 45, 50, 55, 59, 64];
@@ -35,6 +39,25 @@ const INTERVAL_COLORS: Record<string, string> = {
 };
 
 const DEFAULT_DOT_COLOR = '#888888';
+const DARK_LABEL = '#050508';
+const LIGHT_LABEL = '#ffffff';
+
+// WCAG relative luminance of a #rrggbb color.
+const luminance = (hex: string): number => {
+  const [r, g, b] = [1, 3, 5].map(i => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+// Dark or light label text, whichever contrasts more with the dot.
+const labelColorFor = (dotColor: string): string => {
+  const l = luminance(dotColor);
+  const darkContrast = (l + 0.05) / (luminance(DARK_LABEL) + 0.05);
+  const lightContrast = 1.05 / (l + 0.05);
+  return darkContrast >= lightContrast ? DARK_LABEL : LIGHT_LABEL;
+};
 const SCALE_COLOR = '#DAA520';
 const EXTENSION_COLOR = '#ff6600';
 
@@ -53,12 +76,15 @@ interface ScaleDot {
   isExtension: boolean;
 }
 
-const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, isPreview = false }) => {
+const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, isPreview = false, labels, mutedStrings }) => {
   const activePositions = useMemo(() => {
     const set = new Set<string>();
     voicing.forEach(pos => set.add(`${pos.string}-${pos.fret}`));
     return set;
   }, [voicing]);
+
+  // Widen the board only for voicings above the 15th fret (shared or generated shapes go up to 24)
+  const fretCount = useMemo(() => Math.max(FRET_COUNT, ...voicing.map(pos => pos.fret)), [voicing]);
 
   // Ghost chord dots (existing behavior)
   const ghostDots = useMemo(() => {
@@ -68,7 +94,7 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
 
     const dots: GhostDot[] = [];
     for (let string = 0; string < STRING_COUNT; string++) {
-      for (let fret = 0; fret <= FRET_COUNT; fret++) {
+      for (let fret = 0; fret <= fretCount; fret++) {
         if (activePositions.has(`${string}-${fret}`)) continue;
         const midi = OPEN_STRING_MIDI[string] + fret;
         const noteName = NOTES[midi % 12];
@@ -80,7 +106,7 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
       }
     }
     return dots;
-  }, [chordNotes, activePositions]);
+  }, [chordNotes, activePositions, fretCount]);
 
   // Scale dots (ALL scale notes including chord tones, for complete pattern visibility)
   const scaleDots = useMemo(() => {
@@ -91,7 +117,7 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
 
     const dots: ScaleDot[] = [];
     for (let string = 0; string < STRING_COUNT; string++) {
-      for (let fret = 0; fret <= FRET_COUNT; fret++) {
+      for (let fret = 0; fret <= fretCount; fret++) {
         if (activePositions.has(`${string}-${fret}`)) continue;
         const midi = OPEN_STRING_MIDI[string] + fret;
         const noteName = NOTES[midi % 12];
@@ -108,7 +134,7 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
       }
     }
     return dots;
-  }, [scaleNotes, activePositions]);
+  }, [scaleNotes, activePositions, fretCount]);
 
   return (
     <div className={`bg-bg-steel border rounded-xl p-3 md:p-6 select-none transition-all duration-200 shadow-[0_0_30px_rgba(0,0,0,0.5)] ${isPreview ? 'border-crimson ring-1 ring-crimson/30' : 'border-crimson/10'}`}>
@@ -118,7 +144,7 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
 
         {/* Frets */}
         <div className="flex justify-between">
-          {[...Array(FRET_COUNT + 1)].map((_, i) => (
+          {[...Array(fretCount + 1)].map((_, i) => (
             <div key={i} className="w-px h-20 md:h-28 bg-bone/15"></div>
           ))}
         </div>
@@ -132,14 +158,14 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
 
         {/* Fret Markers */}
         <div className="absolute -bottom-4 md:-bottom-5 left-0 right-0 flex justify-around">
-            {[...Array(FRET_COUNT)].map((_, i) => (
+            {[...Array(fretCount)].map((_, i) => (
                  <div key={i} className="w-full text-center text-[10px] md:text-xs text-bone/60 font-mono">
                     {FRET_MARKERS.includes(i + 1) ? (i + 1) : ''}
                 </div>
             ))}
         </div>
         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-around">
-            {[...Array(FRET_COUNT)].map((_, i) => (
+            {[...Array(fretCount)].map((_, i) => (
                  <div key={i} className="w-full text-center">
                     {FRET_MARKERS.includes(i + 1) && (i + 1) !== 12 && <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-crimson/10 mx-auto"></div>}
                     {(i+1) === 12 && <div className="flex justify-center gap-2 md:gap-4"><div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-crimson/10"></div><div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-crimson/10"></div></div>}
@@ -151,7 +177,7 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
         <div className="absolute top-0 left-0 right-0 bottom-0">
             {scaleDots.map((dot, i) => {
                 const top = `${((STRING_COUNT - 1 - dot.string) / (STRING_COUNT - 1)) * 100}%`;
-                const left = dot.fret === 0 ? `-1.5%` : `${((dot.fret - 0.5) / FRET_COUNT) * 100}%`;
+                const left = dot.fret === 0 ? `-1.5%` : `${((dot.fret - 0.5) / fretCount) * 100}%`;
                 return (
                     <div
                         key={`scale-${i}`}
@@ -172,7 +198,7 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
         <div className="absolute top-0 left-0 right-0 bottom-0">
             {ghostDots.map((dot, i) => {
                 const top = `${((STRING_COUNT - 1 - dot.string) / (STRING_COUNT - 1)) * 100}%`;
-                const left = dot.fret === 0 ? `-1.5%` : `${((dot.fret - 0.5) / FRET_COUNT) * 100}%`;
+                const left = dot.fret === 0 ? `-1.5%` : `${((dot.fret - 0.5) / fretCount) * 100}%`;
                 return (
                     <div
                         key={`ghost-${i}`}
@@ -188,17 +214,33 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
             })}
         </div>
 
+        {/* Muted string markers at the nut */}
+        {mutedStrings && mutedStrings.length > 0 && (
+          <div className="absolute top-0 left-0 right-0 bottom-0" aria-hidden="true">
+            {mutedStrings.map(string => (
+              <div
+                key={`muted-${string}`}
+                className="absolute w-3.5 h-3.5 md:w-5 md:h-5 rounded-full transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center bg-bg-abyss border border-bone/40 text-bone/80 font-mono text-[9px] md:text-[11px] leading-none"
+                style={{ top: `${((STRING_COUNT - 1 - string) / (STRING_COUNT - 1)) * 100}%`, left: '-1.5%' }}
+              >
+                x
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Active Voicing Notes */}
         <div className="absolute top-0 left-0 right-0 bottom-0">
             {voicing.map((pos, i) => {
                 const top = `${((STRING_COUNT - 1 - pos.string) / (STRING_COUNT - 1)) * 100}%`;
-                const left = pos.fret === 0 ? `-1.5%` : `${((pos.fret - 0.5) / FRET_COUNT) * 100}%`;
+                const left = pos.fret === 0 ? `-1.5%` : `${((pos.fret - 0.5) / fretCount) * 100}%`;
                 const dotColor = INTERVAL_COLORS[pos.interval] || DEFAULT_DOT_COLOR;
+                const label = labels?.[`${pos.string}-${pos.fret}`];
 
                 return (
                     <div
                         key={i}
-                        className="absolute w-3.5 h-3.5 md:w-5 md:h-5 rounded-full transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center border border-bone/20"
+                        className={`absolute ${label ? 'w-4 h-4' : 'w-3.5 h-3.5'} md:w-5 md:h-5 rounded-full transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center border border-bone/20`}
                         style={{
                             top,
                             left,
@@ -206,6 +248,11 @@ const Fretboard: React.FC<FretboardProps> = ({ voicing, chordNotes, scaleNotes, 
                             boxShadow: `0 0 8px ${dotColor}50, 0 0 16px ${dotColor}20`
                         }}
                     >
+                        {label && (
+                          <span className="font-mono font-bold text-[10px] md:text-[11px] leading-none" style={{ color: labelColorFor(dotColor) }}>
+                            {label}
+                          </span>
+                        )}
                     </div>
                 )
             })}

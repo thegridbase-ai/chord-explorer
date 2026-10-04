@@ -15,6 +15,9 @@ import {
   voicingLabel,
   describeSharedShape,
   findGeneratedVoicing,
+  chordTypeForShape,
+  chooseGeneratedShape,
+  chooseInversion,
   PlayableBassFilter,
   CuratedClass,
 } from './playable';
@@ -309,6 +312,33 @@ describe('gv URL param', () => {
       expect(toGvParam(parseGvParam(text)!)).toBe(text);
     }
     expect(toGvParam(tab('8 7 8 0 x x'))).toBe('8-7-8-0-x-x');
+  });
+});
+
+describe('chordTypeForShape', () => {
+  it('names a shape by the chord type its pitch classes spell exactly', () => {
+    expect(chordTypeForShape(parseGvParam('x-0-2-2-1-0')!, 9)).toBe('minor');
+    expect(chordTypeForShape(parseGvParam('x-3-2-0-1-0')!, 0)).toBe('Major');
+    expect(chordTypeForShape(parseGvParam('0-2-0-1-0-0')!, 4)).toBe('7');
+    expect(chordTypeForShape(parseGvParam('x-0-2-2-3-0')!, 9)).toBe('sus4');
+    expect(chordTypeForShape(parseGvParam('x-x-0-1-0-1')!, 2)).toBe('dim7');
+  });
+
+  it('returns null for power chords, dyads, quartal stacks, clusters and a wrong root', () => {
+    expect(chordTypeForShape(parseGvParam('0-2-2-x-x-x')!, 4)).toBeNull();
+    expect(chordTypeForShape(parseGvParam('0-x-2-x-x-x')!, 4)).toBeNull();
+    expect(chordTypeForShape(parseGvParam('0-0-0-x-x-x')!, 4)).toBeNull();
+    expect(chordTypeForShape(parseGvParam('x-x-x-9-7-3')!, 4)).toBeNull();
+    expect(chordTypeForShape(parseGvParam('x-0-2-2-1-0')!, 0)).toBeNull();
+  });
+});
+
+describe('generated voicing and inversion choice', () => {
+  it('a generated pick resets the inversion, an inversion clears the pick', () => {
+    const shape: Shape = [null, 0, 2, 2, 1, 0];
+    expect(chooseGeneratedShape(shape)).toEqual({ generatedShape: shape, inversion: 0 });
+    expect(chooseInversion(2)).toEqual({ generatedShape: null, inversion: 2 });
+    expect(chooseInversion(0)).toEqual({ generatedShape: null, inversion: 0 });
   });
 });
 

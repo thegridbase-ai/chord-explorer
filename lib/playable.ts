@@ -23,7 +23,7 @@ import {
   shapeToMidi,
   shapeToMidiByString,
 } from './engine';
-import { ChordType, ChordVoicing, Interval, Note, VoicingDefinition } from '../constants/musicData';
+import { CHORD_TYPES, CHORD_TYPE_IDS, ChordType, ChordVoicing, Interval, Note, VoicingDefinition } from '../constants/musicData';
 
 export type PlayableGroupId = 'full' | 'shell' | 'rootless';
 
@@ -212,6 +212,29 @@ export const parseGvParam = (value: string | null | undefined): Shape | null => 
 };
 
 export const toGvParam = (shape: Shape): string => shape.map(fret => (fret === null ? 'x' : String(fret))).join('-');
+
+/**
+ * The chord type whose formula is exactly the shape's pitch classes above the root, or null when no type spells
+ * it (a power chord, dyad, quartal stack or cluster), so a shape is never shown under a chord it is not.
+ */
+export const chordTypeForShape = (shape: Shape, rootPc: number): ChordType | null => {
+  const sounding = new Set(shapeToMidi(shape, E_STANDARD).map(midi => intervalFrom(rootPc, pitchClass(midi))));
+  const match = CHORD_TYPE_IDS.find(type => {
+    const formula = CHORD_TYPES[type].intervals;
+    return formula.length === sounding.size && formula.every(interval => sounding.has(interval));
+  });
+  return match ?? null;
+};
+
+/** A generated shape and an inversion never show together: picking either clears the other. */
+export interface VoicingChoice {
+  generatedShape: Shape | null;
+  inversion: number;
+}
+
+export const chooseGeneratedShape = (shape: Shape | null): VoicingChoice => ({ generatedShape: shape, inversion: 0 });
+
+export const chooseInversion = (inversion: number): VoicingChoice => ({ generatedShape: null, inversion });
 
 // Interval names by semitones above the root, as lib/musicTheory.ts assigns them (9 = the dim7 bb7 there).
 // CE has no b2 name; 'Major 2nd' is its closest neighbour and keeps the note off the root colour.

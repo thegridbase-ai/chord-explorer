@@ -149,11 +149,6 @@ const Piano: React.FC<PianoProps> = ({ notes, scaleNotes, keyRoot, keyType }) =>
               case 'F#': leftPosition = (1/whiteKeys.length)*100 * 3.7; break;
               case 'G#': leftPosition = (1/whiteKeys.length)*100 * 4.7; break;
               case 'A#': leftPosition = (1/whiteKeys.length)*100 * 5.7; break;
-              case 'C#': if(key.octave===5) leftPosition = (1/whiteKeys.length)*100 * 7.7; break;
-              case 'D#': if(key.octave===5) leftPosition = (1/whiteKeys.length)*100 * 8.7; break;
-              case 'F#': if(key.octave===5) leftPosition = (1/whiteKeys.length)*100 * 10.7; break;
-              case 'G#': if(key.octave===5) leftPosition = (1/whiteKeys.length)*100 * 11.7; break;
-              case 'A#': if(key.octave===5) leftPosition = (1/whiteKeys.length)*100 * 12.7; break;
               default: leftPosition = (index * (100/17)) + 2.5;
           }
 

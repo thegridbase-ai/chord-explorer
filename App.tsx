@@ -25,7 +25,10 @@ import { DEFAULT_HAND_PROFILE, HandProfile, Shape, handProfileHash } from './lib
 import { loadHandProfile, saveHandProfile, clearHandProfile, isDefaultHandProfile } from './lib/handProfileStorage';
 import {
   CuratedClass,
+  VoicingChoice,
   bassFilterMatches,
+  chooseGeneratedShape,
+  chooseInversion,
   curatedBadge,
   describeSharedShape,
   findGeneratedVoicing,
@@ -236,6 +239,11 @@ const App: React.FC = () => {
     if (generatedMatch && !bassFilterMatches(generatedMatch.voicing, filter)) {
       setGeneratedShape(null);
     }
+  };
+
+  const applyVoicingChoice = (choice: VoicingChoice) => {
+    setGeneratedShape(choice.generatedShape);
+    setInversion(choice.inversion);
   };
 
   const handleSelectCuratedVoicing = (index: number) => {
@@ -587,7 +595,7 @@ const App: React.FC = () => {
               sharedShape={sharedShape}
               curatedName={currentVoicing?.name ?? null}
               disabled={!!hoveredChord}
-              onSelect={setGeneratedShape}
+              onSelect={shape => applyVoicingChoice(chooseGeneratedShape(shape))}
               onBackToCurated={() => setGeneratedShape(null)}
               onOpenProfile={() => setShowHandProfile(true)}
             />
@@ -616,10 +624,10 @@ const App: React.FC = () => {
                       key={index}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
-                      onClick={() => setInversion(index)}
+                      onClick={() => applyVoicingChoice(chooseInversion(index))}
                       disabled={!!hoveredChord}
                       className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all border font-mono text-left ${
-                        currentInversion === index
+                        currentInversion === index && !generatedShape
                           ? 'bg-crimson/20 border-crimson text-crimson shadow-[0_0_10px_rgba(220,20,60,0.3)]'
                           : 'bg-bone/5 border-bone/10 text-bone/60 hover:bg-bone/10 hover:text-bone'
                       } ${hoveredChord ? 'cursor-not-allowed' : ''}`}

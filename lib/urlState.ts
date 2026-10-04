@@ -1,7 +1,7 @@
 import { NOTES, CHORD_TYPE_IDS, Note, ChordType } from '../constants/musicData';
 import { SCALE_TYPE_IDS, ScaleType } from '../constants/scaleData';
 import { Shape, parsePitchClass } from './engine';
-import { parseGvParam, toGvParam } from './playable';
+import { chordTypeForShape, parseGvParam, toGvParam } from './playable';
 
 export interface UrlState {
   root?: Note;
@@ -22,7 +22,7 @@ const parseChordType = (value: string): ChordType | undefined => {
   return CHORD_TYPE_IDS.find(id => id.toLowerCase() === lower);
 };
 
-// Parses ?root=C&type=m7&voicing=1&scale=dorian&inv=1&gv=x-3-2-0-1-0. Invalid values are ignored.
+// Parses ?root=C&type=m7&voicing=1&scale=dorian&inv=1 or &gv=x-3-2-0-1-0. Invalid values are ignored.
 // Roots may use flats or lowercase letters (Bb -> A#); they are stored with the app's sharp names.
 export const readStateFromUrl = (): UrlState => {
   if (typeof window === 'undefined') return {};
@@ -56,9 +56,16 @@ export const readStateFromUrl = (): UrlState => {
     state.inv = Number(inv);
   }
 
+  // A gv without a type takes the type its notes spell; one that spells none (E5, clusters) is dropped rather
+  // than shown under the default type. A gv is the voicing on screen, so it wins over inv.
   const gv = parseGvParam(params.get('gv'));
   if (gv) {
-    state.gv = gv;
+    const gvType = state.type ?? (rootPc !== null ? chordTypeForShape(gv, rootPc) : null);
+    if (gvType) {
+      state.type = gvType;
+      state.gv = gv;
+      delete state.inv;
+    }
   }
 
   return state;
@@ -79,7 +86,7 @@ export const writeStateToUrl = (
   params.set('type', type);
   params.set('voicing', String(voicing));
   if (scaleActive) params.set('scale', scale);
-  if (inversion > 0) params.set('inv', String(inversion));
+  if (inversion > 0 && !generatedShape) params.set('inv', String(inversion));
   if (generatedShape) params.set('gv', toGvParam(generatedShape));
   window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
 };

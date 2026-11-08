@@ -91,7 +91,10 @@ const App: React.FC = () => {
   const [showSongTabs, setShowSongTabs] = useState(false);
   const [selectedVoicingIndex, setSelectedVoicingIndex] = useState(initialUrlState.voicing ?? 0);
   const [bassFilter, setBassFilter] = useState<BassFilter>('all');
-  const [progression, setProgression] = useState<ProgressionChord[]>(loadStoredProgression);
+  // A shared link's progression wins over the one saved in this browser
+  const [progression, setProgression] = useState<ProgressionChord[]>(
+    () => initialUrlState.progression ?? loadStoredProgression(),
+  );
   const [showRelativeChords, setShowRelativeChords] = useState(false);
   const [scaleActive, setScaleActive] = useState(initialUrlState.scale !== undefined);
   const [scaleType, setScaleType] = useState<ScaleType>(initialUrlState.scale ?? 'pentatonic_minor');
@@ -175,8 +178,8 @@ const App: React.FC = () => {
 
   // Keep sharable state in the URL query string
   useEffect(() => {
-    writeStateToUrl(rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion, generatedShape);
-  }, [rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion, generatedShape]);
+    writeStateToUrl(rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion, generatedShape, progression);
+  }, [rootNote, chordType, currentVoicingIndex, scaleActive, scaleType, currentInversion, generatedShape, progression]);
 
   // Persist the progression across sessions
   useEffect(() => {

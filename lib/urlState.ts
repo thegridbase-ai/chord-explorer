@@ -1,4 +1,4 @@
-import { NOTES, CHORD_TYPE_IDS, Note, ChordType } from '../constants/musicData';
+import { NOTES, CHORD_TYPE_IDS, Note, ChordType, ProgressionChord } from '../constants/musicData';
 import { SCALE_TYPE_IDS, ScaleType } from '../constants/scaleData';
 import { Shape, parsePitchClass } from './engine';
 import { chordTypeForShape, parseGvParam, toGvParam } from './playable';
@@ -11,7 +11,37 @@ export interface UrlState {
   inv?: number;
   /** Generated "Playable for me" shape, low -> high string, null = muted. */
   gv?: Shape;
+  /** Shared progression from ?prog=; absent when the param is missing or holds nothing valid. */
+  progression?: ProgressionChord[];
 }
+
+const MAX_PROGRESSION = 8;
+
+/**
+ * Progression param: chords separated by commas, each `root.type.voicing` (voicing optional), e.g.
+ * `A.minor.0,F.major.1,C.major,G.major`. Roots accept flats and lowercase like `root`. Invalid chords
+ * are skipped; more than eight are cut.
+ */
+export const parseProgParam = (value: string | null): ProgressionChord[] | undefined => {
+  if (!value) return undefined;
+  const chords: ProgressionChord[] = [];
+  for (const token of value.split(',')) {
+    const [rootRaw, typeRaw, voicingRaw] = token.split('.');
+    const pc = rootRaw ? parsePitchClass(rootRaw) : null;
+    const type = typeRaw ? parseChordType(typeRaw) : undefined;
+    if (pc === null || !type) continue;
+    const voicingIndex = voicingRaw !== undefined && /^\d{1,2}$/.test(voicingRaw) ? Number(voicingRaw) : 0;
+    chords.push({ root: NOTES[pc], type, voicingIndex });
+    if (chords.length >= MAX_PROGRESSION) break;
+  }
+  return chords.length > 0 ? chords : undefined;
+};
+
+export const toProgParam = (progression: readonly ProgressionChord[]): string =>
+  progression
+    .slice(0, MAX_PROGRESSION)
+    .map(c => (c.voicingIndex > 0 ? `${c.root}.${c.type}.${c.voicingIndex}` : `${c.root}.${c.type}`))
+    .join(',');
 
 // Case-insensitive so links like ?type=major work. A capital "M7" is shorthand for a major seventh,
 // so it is not folded into m7.
@@ -68,6 +98,9 @@ export const readStateFromUrl = (): UrlState => {
     }
   }
 
+  const progression = parseProgParam(params.get('prog'));
+  if (progression) state.progression = progression;
+
   return state;
 };
 
@@ -79,6 +112,7 @@ export const writeStateToUrl = (
   scale: ScaleType,
   inversion: number = 0,
   generatedShape: Shape | null = null,
+  progression: readonly ProgressionChord[] = [],
 ): void => {
   if (typeof window === 'undefined') return;
   const params = new URLSearchParams();
@@ -88,5 +122,6 @@ export const writeStateToUrl = (
   if (scaleActive) params.set('scale', scale);
   if (inversion > 0 && !generatedShape) params.set('inv', String(inversion));
   if (generatedShape) params.set('gv', toGvParam(generatedShape));
+  if (progression.length > 0) params.set('prog', toProgParam(progression));
   window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
 };

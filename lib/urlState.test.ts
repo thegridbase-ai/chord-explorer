@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { readStateFromUrl, writeStateToUrl } from './urlState';
+import { readStateFromUrl, writeStateToUrl, parseProgParam, toProgParam } from './urlState';
 
 const stubLocation = (search: string) => {
   const replaceState = vi.fn();
@@ -148,5 +148,37 @@ describe('writeStateToUrl', () => {
     url = replaceState.mock.calls[0][2];
     stubLocation(url.slice(url.indexOf('?')));
     expect(readStateFromUrl()).toEqual({ root: 'G#', type: 'dim7', voicing: 2, scale: 'dorian', inv: 1 });
+  });
+});
+
+describe('prog param', () => {
+  it('round-trips a progression and drops voicing 0', () => {
+    const prog = [
+      { root: 'A', type: 'minor', voicingIndex: 0 },
+      { root: 'F', type: 'Major', voicingIndex: 1 },
+      { root: 'C', type: 'Major', voicingIndex: 0 },
+      { root: 'G', type: 'Major', voicingIndex: 2 },
+    ] as const;
+    const param = toProgParam([...prog]);
+    expect(param).toBe('A.minor,F.Major.1,C.Major,G.Major.2');
+    expect(parseProgParam(param)).toEqual(prog);
+  });
+
+  it('skips invalid chords, accepts flats, caps at eight', () => {
+    const many = Array.from({ length: 10 }, () => 'C.Major').join(',');
+    expect(parseProgParam('H.Major,Bb.m7,X,E.power')).toEqual([{ root: 'A#', type: 'm7', voicingIndex: 0 }]);
+    expect(parseProgParam(many)?.length).toBe(8);
+    expect(parseProgParam('')).toBeUndefined();
+    expect(parseProgParam(null)).toBeUndefined();
+  });
+
+  it('reads and writes prog alongside the other params', () => {
+    const replaceState = stubLocation('?root=C&type=major&voicing=0&prog=C.Major,G.Major.1');
+    expect(readStateFromUrl().progression).toEqual([
+      { root: 'C', type: 'Major', voicingIndex: 0 },
+      { root: 'G', type: 'Major', voicingIndex: 1 },
+    ]);
+    writeStateToUrl('C', 'Major', 0, false, 'dorian', 0, null, [{ root: 'D', type: 'minor', voicingIndex: 0 }]);
+    expect(replaceState.mock.calls[0][2]).toContain('prog=D.minor');
   });
 });

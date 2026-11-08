@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Square, Trash2, Plus, X, ChevronRight, Flame, Download } from 'lucide-react';
+import { Play, Square, Trash2, Plus, X, ChevronRight, Flame, Download, Link2, Check } from 'lucide-react';
 import { ProgressionChord, CHORD_TYPES } from '../constants/musicData';
 import MiniFretboard from './MiniFretboard';
 import { getAllChordVoicings, getChordVoicing } from '../lib/musicTheory';
@@ -19,6 +19,7 @@ interface ProgressionBuilderProps {
 const ProgressionBuilder: React.FC<ProgressionBuilderProps> = ({ progression, onClear, onRemove, onUpdateVoicing }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(loadStoredBpm);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     saveStoredBpm(bpm);
@@ -42,6 +43,19 @@ const ProgressionBuilder: React.FC<ProgressionBuilderProps> = ({ progression, on
       stopPlayback();
     };
   }, []);
+
+  // The URL already carries the progression (?prog=), so sharing is copying the address bar.
+  const handleCopyLink = useCallback(async () => {
+    if (progression.length === 0) return;
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt('Copy this link', url);
+    }
+    setLinkCopied(true);
+    window.setTimeout(() => setLinkCopied(false), 1600);
+  }, [progression]);
 
   const handleExportMidi = useCallback(() => {
     if (progression.length === 0) return;
@@ -137,6 +151,23 @@ const ProgressionBuilder: React.FC<ProgressionBuilderProps> = ({ progression, on
               }`}
             >
               <Download className="w-4 h-4" />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={handleCopyLink}
+              disabled={isDisabled}
+              aria-label="Copy link to this progression"
+              title={linkCopied ? 'Link copied' : 'Copy link'}
+              className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-colors ${
+                isDisabled
+                  ? 'bg-bone/5 text-bone/20 cursor-not-allowed opacity-50'
+                  : linkCopied
+                    ? 'bg-crimson/20 text-crimson'
+                    : 'bg-bone/5 text-bone/40 hover:bg-crimson/10 hover:text-crimson'
+              }`}
+            >
+              {linkCopied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
             </motion.button>
           </div>
           <div className="text-right hidden sm:block">
